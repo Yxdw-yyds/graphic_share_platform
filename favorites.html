@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>我的收藏 - αcFun</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+  <style>
+    :root {
+      --primary-color: #1da1f2;
+      --bg-color: #f5f8fa;
+      --card-bg: #ffffff;
+      --text-main: #0f1419;
+      --text-secondary: #536471;
+      --border-color: #eff3f4;
+      --nav-height: 60px;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+    }
+
+    /* 顶部导航栏 */
+    .navbar {
+      background-color: var(--card-bg);
+      height: var(--nav-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .navbar-left {
+      display: flex;
+      align-items: center;
+      width: 250px;
+    }
+
+    .logo {
+      font-family: 'Segoe UI Black', Impact, sans-serif;
+      font-size: 28px;
+      color: var(--primary-color);
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-decoration: none;
+    }
+
+    .navbar-center {
+      flex: 1;
+      display: flex;
+      justify-content: center;
+    }
+
+    .search-bar {
+      width: 100%;
+      max-width: 500px;
+    }
+
+    .search-bar input {
+      width: 100%;
+      padding: 10px 20px;
+      border-radius: 9999px;
+      border: 1px solid transparent;
+      background-color: #eff3f4;
+      font-size: 15px;
+      outline: none;
+      transition: all 0.2s;
+    }
+
+    .search-bar input:focus {
+      background-color: #fff;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 1px var(--primary-color);
+    }
+
+    .navbar-right {
+      width: 250px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    /* 布局容器 */
+    .layout-container {
+      max-width: 1200px;
+      margin: 20px auto;
+      display: flex;
+      gap: 30px;
+      padding: 0 20px;
+      align-items: flex-start;
+    }
+
+    /* 左侧侧边栏 */
+    .sidebar {
+      width: 240px;
+      background-color: transparent;
+      position: sticky;
+      top: 80px;
+      flex-shrink: 0;
+    }
+
+    .menu-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+      padding: 10px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 20px;
+      margin-bottom: 5px;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-size: 18px;
+      font-weight: 600;
+      color: var(--text-main);
+      transition: background-color 0.2s;
+    }
+
+    .menu-item:hover {
+      background-color: #eff3f4;
+      color: var(--primary-color);
+    }
+
+    .menu-item.active {
+      color: var(--primary-color);
+      background-color: rgba(29, 161, 242, 0.1);
+    }
+
+    .menu-icon {
+      margin-right: 15px;
+      font-size: 22px;
+      width: 24px;
+      text-align: center;
+    }
+
+    /* 主要内容 */
+    .main-content {
+      flex: 1;
+      max-width: 600px;
+    }
+
+    .page-header {
+      background-color: var(--card-bg);
+      padding: 15px 20px;
+      border-radius: 16px;
+      margin-bottom: 20px;
+      border: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .page-header h2 {
+      margin: 0;
+      font-size: 20px;
+    }
+
+    .back-btn {
+      padding: 8px 16px;
+      background-color: #eff3f4;
+      color: var(--text-main);
+      border: none;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      text-decoration: none;
+    }
+
+    .back-btn:hover {
+      background-color: #ddd;
+    }
+
+    .feed {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .post-card {
+      background-color: var(--card-bg);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+      border: 1px solid var(--border-color);
+    }
+
+    .post-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .user-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      margin-right: 12px;
+    }
+
+    .user-name {
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .post-text {
+      font-size: 16px;
+      line-height: 1.5;
+      margin-bottom: 12px;
+      color: var(--text-main);
+    }
+
+    .post-image {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 顶部导航栏 -->
+  <nav class="navbar">
+    <div class="navbar-left">
+      <a href="index.html" class="logo">αcFun</a>
+    </div>
+    <div class="navbar-center">
+      <div class="search-bar">
+        <input type="text" id="searchBox" placeholder="搜索收藏内容..." oninput="filterPosts()">
+      </div>
+    </div>
+    <div class="navbar-right">
+    </div>
+  </nav>
+
+  <div class="layout-container">
+    <!-- 左侧侧边栏 -->
+    <aside class="sidebar">
+      <ul class="menu-list">
+        <li class="menu-item" onclick="window.location.href='index.html'">
+          <span class="menu-icon">🏠</span> 首页
+        </li>
+        <li class="menu-item" onclick="window.location.href='index.html'">
+          <span class="menu-icon">🔥</span> 热门
+        </li>
+        <li class="menu-item" onclick="window.location.href='index.html'">
+          <span class="menu-icon">📰</span> 资讯
+        </li>
+        <li class="menu-item" onclick="window.location.href='index.html'">
+          <span class="menu-icon">📚</span> 推荐话题
+        </li>
+        <li class="menu-item active">
+          <span class="menu-icon">⭐</span> 收藏夹
+        </li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+      <div class="page-header">
+        <h2>我的收藏</h2>
+        <a href="index.html" class="back-btn">返回首页</a>
+      </div>
+      <div id="fav-feed" class="feed"></div>
+    </main>
+  </div>
+
+  <script src="assets/components.js"></script>
+  <script src="api.js"></script>
+  <script>
+    function renderPost(post) {
+      return `
+        <article class="post-card">
+          <div class="post-header">
+            <img src="https://api.dicebear.com/7.x/thumbs/svg?seed=${post.user}" class="user-avatar">
+            <span class="user-name">${post.user}</span>
+          </div>
+          <p class="post-text">${post.text}</p>
+          ${post.img ? `<img class="post-image" src="${post.img}" />` : ''}
+        </article>`;
+    }
+
+    async function filterPosts() {
+      const keyword = document.getElementById('searchBox').value.toLowerCase();
+      const favFeed = document.getElementById('fav-feed');
+      if (!getToken()) {
+        favFeed.innerHTML = acf.emptyState({
+          icon: '🔒', text: '请先登录后查看收藏',
+          action: { label: '去登录', onclick: () => location.href = 'index.html' }
+        });
+        return;
+      }
+      favFeed.innerHTML = acf.skeleton(3);
+      let allFavorites = [];
+      try {
+        const works = await apiFetch('/api/favorites', { silent: true });
+        allFavorites = works.map(workToPost);
+      } catch (err) {
+        favFeed.innerHTML = acf.emptyState({ icon: '⚠️', text: err.message });
+        return;
+      }
+
+      const filtered = allFavorites.filter(post =>
+        (post.text && post.text.toLowerCase().includes(keyword)) ||
+        (post.user && post.user.toLowerCase().includes(keyword))
+      );
+
+      if (filtered.length === 0) {
+        favFeed.innerHTML = acf.emptyState({
+          icon: '⭐', text: keyword ? '没有匹配的收藏' : '还没有收藏，去首页发现喜欢的内容',
+          action: keyword ? null : { label: '去首页', onclick: () => location.href = 'index.html' }
+        });
+      } else {
+        favFeed.innerHTML = filtered.map(renderPost).join('');
+      }
+    }
+
+    window.onload = filterPosts;
+  </script>
+</body>

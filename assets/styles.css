@@ -1,0 +1,216 @@
+/* αcFun · 公共设计系统
+ * 引入方式: <link rel="stylesheet" href="assets/styles.css">
+ * 只放跨页可复用的 token、组件、工具类。页面专属样式留在各自 <style> 块里。
+ */
+
+:root {
+  /* —— Color tokens —— */
+  --primary-color: #1da1f2;
+  --primary-dark: #1a8cd8;
+  --primary-soft: rgba(29, 161, 242, 0.1);
+  --bg-color: #f5f8fa;
+  --card-bg: #ffffff;
+  --text-main: #0f1419;
+  --text-secondary: #536471;
+  --text-muted: #8899a6;
+  --border-color: #eff3f4;
+  --danger-color: #e0245e;
+  --warning-color: #ffad1f;
+  --success-color: #17bf63;
+
+  /* —— Spacing & radius & shadow —— */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.1);
+
+  /* —— Typography —— */
+  --text-h1: 28px;
+  --text-h2: 22px;
+  --text-h3: 18px;
+  --text-h4: 16px;
+  --text-body: 15px;
+  --text-small: 13px;
+
+  --nav-height: 60px;
+}
+
+/* —— Focus ring (键盘可达) —— */
+*:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* —— Buttons —— */
+.acf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--primary-color);
+  color: #fff;
+  font-size: var(--text-body);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.05s;
+  font-family: inherit;
+}
+.acf-btn:hover { background: var(--primary-dark); }
+.acf-btn:active { transform: translateY(1px); }
+.acf-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.acf-btn-ghost {
+  background: transparent;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
+.acf-btn-ghost:hover { background: var(--primary-soft); color: var(--primary-color); }
+.acf-btn-danger { background: var(--danger-color); }
+.acf-btn-danger:hover { background: #c01b4f; }
+.acf-btn-sm { padding: 4px 10px; font-size: var(--text-small); }
+
+/* —— Status badges —— */
+.acf-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+}
+.acf-badge-pending { background: #fff4e0; color: #b86c00; }
+.acf-badge-approved { background: #e0f8e8; color: #1d7a3a; }
+.acf-badge-rejected { background: #ffe5ee; color: #b1004a; }
+.acf-badge-info { background: var(--primary-soft); color: var(--primary-color); }
+
+/* —— Toast —— */
+.acf-toast-container {
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+.acf-toast {
+  pointer-events: auto;
+  min-width: 300px;
+  max-width: min(420px, calc(100vw - 32px));
+  padding: 12px 18px;
+  background: #fff;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  border-left: 4px solid var(--primary-color);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: var(--text-body);
+  color: var(--text-main);
+  animation: acf-toast-in 0.25s ease-out;
+}
+.acf-toast.acf-toast-success { border-left-color: var(--success-color); }
+.acf-toast.acf-toast-error { border-left-color: var(--danger-color); }
+.acf-toast.acf-toast-warning { border-left-color: var(--warning-color); }
+.acf-toast .acf-toast-icon { font-size: 18px; }
+.acf-toast.acf-out { animation: acf-toast-out 0.2s ease-in forwards; }
+
+@keyframes acf-toast-in {
+  from { opacity: 0; transform: translateY(-12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes acf-toast-out {
+  from { opacity: 1; transform: translateY(0); }
+  to { opacity: 0; transform: translateY(-12px); }
+}
+
+/* —— Skeleton loading —— */
+.acf-skeleton {
+  background: linear-gradient(90deg, #eff3f4 0%, #f7f9fa 50%, #eff3f4 100%);
+  background-size: 200% 100%;
+  animation: acf-shimmer 1.4s infinite linear;
+  border-radius: var(--radius-sm);
+}
+.acf-skeleton-line {
+  height: 14px;
+  margin: 8px 0;
+}
+.acf-skeleton-card {
+  height: 120px;
+  margin-bottom: 16px;
+}
+@keyframes acf-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* —— Empty state —— */
+.acf-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--text-secondary);
+}
+.acf-empty-icon {
+  font-size: 56px;
+  margin-bottom: 12px;
+  opacity: 0.5;
+}
+.acf-empty-text {
+  font-size: var(--text-body);
+  margin-bottom: 16px;
+}
+
+/* —— Pager —— */
+.acf-pager {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+  margin: 20px 0;
+}
+.acf-pager button {
+  padding: 6px 12px;
+  border: 1px solid var(--border-color);
+  background: #fff;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--text-small);
+  color: var(--text-main);
+}
+.acf-pager button:hover:not(:disabled) { border-color: var(--primary-color); color: var(--primary-color); }
+.acf-pager button.active { background: var(--primary-color); color: #fff; border-color: var(--primary-color); }
+.acf-pager button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* —— Mobile (<768px) —— */
+@media (max-width: 768px) {
+  .acf-hide-mobile { display: none !important; }
+  .acf-toast-container {
+    top: 10px;
+    left: 50%;
+    right: auto;
+    width: calc(100vw - 20px);
+  }
+  .acf-toast {
+    min-width: auto;
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+/* —— Action button active state —— */
+.acf-active-like { color: var(--danger-color) !important; }
+.acf-active-fav { color: var(--warning-color) !important; }

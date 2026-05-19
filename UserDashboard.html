@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>个人中心 - αcFun</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/styles.css">
+  <style>
+    :root {
+      --primary-color: #1da1f2;
+      --bg-color: #f5f8fa;
+      --card-bg: #ffffff;
+      --text-main: #0f1419;
+      --text-secondary: #536471;
+      --border-color: #eff3f4;
+      --nav-height: 60px;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-main);
+    }
+
+    /* 顶部导航栏 */
+    .navbar {
+      background-color: var(--card-bg);
+      height: var(--nav-height);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .navbar-left {
+      display: flex;
+      align-items: center;
+    }
+
+    .logo {
+      font-family: 'Segoe UI Black', Impact, sans-serif;
+      font-size: 28px;
+      color: var(--primary-color);
+      font-weight: 900;
+      letter-spacing: 1px;
+      text-decoration: none;
+    }
+
+    .navbar-right {
+      display: flex;
+      align-items: center;
+    }
+    
+    .back-link {
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 14px;
+        margin-right: 15px;
+    }
+    .back-link:hover {
+        color: var(--primary-color);
+    }
+
+    /* 布局容器 */
+    .layout-container {
+      max-width: 1200px;
+      margin: 20px auto;
+      display: flex;
+      gap: 30px;
+      padding: 0 20px;
+      align-items: flex-start;
+    }
+
+    /* 左侧侧边栏 */
+    .sidebar {
+      width: 240px;
+      background-color: transparent;
+      position: sticky;
+      top: 80px;
+      flex-shrink: 0;
+    }
+
+    .menu-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      background: var(--card-bg);
+      border-radius: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+      padding: 10px;
+    }
+
+    .menu-item {
+      display: flex;
+      align-items: center;
+      padding: 12px 20px;
+      margin-bottom: 5px;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-main);
+      transition: background-color 0.2s;
+    }
+
+    .menu-item:hover {
+      background-color: #eff3f4;
+      color: var(--primary-color);
+    }
+
+    .menu-item.active {
+      color: var(--primary-color);
+      background-color: rgba(29, 161, 242, 0.1);
+    }
+
+    /* 主内容 */
+    .main-content {
+      flex: 1;
+      background-color: var(--card-bg);
+      border-radius: 16px;
+      padding: 30px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+      border: 1px solid var(--border-color);
+      min-height: 500px;
+    }
+
+    .section {
+      display: none;
+    }
+
+    .section.active {
+      display: block;
+      animation: fadeIn 0.3s;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    h3 {
+      margin-top: 0;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 15px;
+      margin-bottom: 20px;
+      font-size: 20px;
+    }
+
+    /* 表单 */
+    form {
+        max-width: 400px;
+    }
+    
+    label {
+        display: block;
+        margin-top: 15px;
+        margin-bottom: 5px;
+        font-weight: 600;
+        font-size: 14px;
+        color: var(--text-secondary);
+    }
+
+    input[type="text"], input[type="email"], input[type="tel"], input[type="date"], select, textarea {
+      padding: 10px;
+      width: 100%;
+      margin-bottom: 5px;
+      border: 1px solid #cfd9de;
+      border-radius: 6px;
+      font-family: inherit;
+      box-sizing: border-box;
+    }
+
+    textarea {
+      min-height: 150px;
+      resize: vertical;
+      line-height: 1.6;
+    }
+    
+    input:disabled {
+        background-color: #f7f9f9;
+        color: var(--text-secondary);
+    }
+
+    button {
+      padding: 10px 20px;
+      background-color: var(--primary-color);
+      color: white;
+      border: none;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 20px;
+      transition: background-color 0.2s;
+    }
+    
+    button:hover {
+        background-color: #1a91da;
+    }
+
+    button.delete {
+      background-color: #e0245e;
+      margin-top: 0;
+    }
+    
+    button.delete:hover {
+        background-color: #c51f53;
+    }
+
+    /* 表格 */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+
+    table th, table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border-color);
+      text-align: left;
+    }
+
+    table th {
+      color: var(--text-secondary);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .edit-modal {
+      position: fixed;
+      inset: 0;
+      display: none;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 76px 18px 24px;
+      background: rgba(15, 20, 25, 0.48);
+      z-index: 3000;
+      overflow-y: auto;
+    }
+
+    .edit-panel {
+      width: min(720px, 100%);
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 16px 44px rgba(15, 20, 25, 0.22);
+      padding: 24px;
+    }
+
+    .edit-panel form {
+      max-width: none;
+    }
+
+    .edit-panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 14px;
+      margin-bottom: 16px;
+    }
+
+    .edit-panel-header h3 {
+      border: 0;
+      padding: 0;
+      margin: 0;
+    }
+
+    .image-preview {
+      min-height: 220px;
+      border: 2px dashed var(--border-color);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      background: #f7f9f9;
+      margin-top: 8px;
+    }
+
+    .image-preview img {
+      max-width: 100%;
+      max-height: 360px;
+      object-fit: contain;
+    }
+
+    .edit-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .chapter-manager {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 18px;
+      align-items: start;
+    }
+
+    .chapter-work-list,
+    .chapter-editor-shell {
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .chapter-panel-title {
+      padding: 14px 16px;
+      font-weight: 800;
+      border-bottom: 1px solid var(--border-color);
+      background: #f7f9f9;
+    }
+
+    .chapter-work-item {
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--border-color);
+      cursor: pointer;
+    }
+
+    .chapter-work-item:hover,
+    .chapter-work-item.active {
+      background: rgba(29, 161, 242, 0.08);
+      color: var(--primary-color);
+    }
+
+    .chapter-work-item strong,
+    .chapter-card strong {
+      display: block;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .chapter-small {
+      color: var(--text-secondary);
+      font-size: 12px;
+      margin-top: 5px;
+    }
+
+    .chapter-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      background: #fff;
+    }
+
+    .chapter-list {
+      padding: 14px;
+    }
+
+    .chapter-card {
+      display: grid;
+      grid-template-columns: 46px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      margin-bottom: 12px;
+      background: #fff;
+    }
+
+    .chapter-index {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #eff3f4;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      color: var(--text-secondary);
+    }
+
+    .chapter-card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    @media (max-width: 900px) {
+      .chapter-manager {
+        grid-template-columns: 1fr;
+      }
+    }
+
+  </style>
+</head>
+<body>
+
+  <nav class="navbar">
+    <div class="navbar-left">
+      <a href="index.html" class="logo">αcFun</a>
+    </div>
+    <div class="navbar-right">
+        <a href="index.html" class="back-link">返回首页</a>
+        <div id="welcome-user">欢迎您，User</div>
+    </div>
+  </nav>
+
+  <div class="layout-container">
+    <aside class="sidebar">
+      <ul class="menu-list">
+        <li class="menu-item active" onclick="showSection('info', this)">个人信息</li>
+        <li class="menu-item" onclick="showSection('posts', this)">个人动态</li>
+        <li class="menu-item" onclick="showSection('chapters', this)">章节管理</li>
+        <li class="menu-item" onclick="showSection('follows', this)">我的关注</li>
+        <li class="menu-item" onclick="showSection('comments', this)">评论管理</li>
+        <li class="menu-item" onclick="showSection('delete', this)" style="color: #e0245e;">账户注销</li>
+      </ul>
+    </aside>
+
+    <main class="main-content">
+      <div id="info" class="section active">
+        <h3>个人信息</h3>
+        <form onsubmit="event.preventDefault(); saveProfile();">
+          <label>用户ID</label>
+          <input type="text" id="profile-id" value="" disabled>
+          
+          <label>联系方式</label>
+          <input type="tel" id="profile-contact" value="">
+          
+          <label>昵称</label>
+          <input type="text" id="profile-nickname" value="">
+          
+          <label>个人简介</label>
+          <input type="text" id="profile-bio" value="">
+          
+          <label>创作等级</label>
+          <input type="text" id="profile-level" value="" disabled>
+          
+          <label>注册时间</label>
+          <input type="text" id="profile-created" value="" disabled>
+          
+          <button type="submit">保存修改</button>
+        </form>
+      </div>
+
+      <div id="posts" class="section">
+        <h3>我的动态</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>动态ID</th>
+              <th>标题</th>
+              <th>分类</th>
+              <th>发布时间</th>
+              <th>状态</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="my-works-body">
+            <tr>
+              <td>P001</td>
+              <td>今天天气超好 ☀️</td>
+              <td>2024-11-20</td>
+              <td>已发布</td>
+            </tr>
+            <tr>
+              <td>P002</td>
+              <td>第一次徒步打卡</td>
+              <td>2024-11-18</td>
+              <td>已发布</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="comments" class="section">
+        <h3>
+          评论管理
+          <button id="comment-back-btn" onclick="loadCommentWorks()" style="display:none; margin-top:0; padding:6px 14px; font-size:13px;">返回帖子列表</button>
+        </h3>
+        <div id="comment-work-title" style="color: var(--text-secondary); margin-bottom: 12px;"></div>
+        <table>
+          <thead>
+            <tr id="comments-table-head">
+              <th>帖子ID</th>
+              <th>标题</th>
+              <th>分类</th>
+              <th>评论数</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="my-comments-body">
+          </tbody>
+        </table>
+      </div>
+
+      <div id="chapters" class="section">
+        <h3>章节管理</h3>
+        <div class="chapter-manager">
+          <div class="chapter-work-list">
+            <div class="chapter-panel-title">选择稿件</div>
+            <div id="chapter-work-list"></div>
+          </div>
+          <div class="chapter-editor-shell">
+            <div class="chapter-toolbar">
+              <div>
+                <strong id="chapter-current-title">请选择一个稿件</strong>
+                <div class="chapter-small" id="chapter-current-meta">章节会随稿件重新进入待审核</div>
+              </div>
+              <button onclick="openChapterModal()">新增章节</button>
+            </div>
+            <div id="chapters-body" class="chapter-list"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="follows" class="section">
+        <h3>我的关注</h3>
+        <table>
+          <thead>
+            <tr><th>用户ID</th><th>昵称</th><th>账号</th><th>等级</th><th>操作</th></tr>
+          </thead>
+          <tbody id="follows-body"></tbody>
+        </table>
+      </div>
+
+      <div id="delete" class="section">
+        <h3 style="color: #e0245e;">账户注销</h3>
+        <p style="color: var(--text-secondary); line-height: 1.6;">如果您确认要注销账户，请点击下方按钮。此操作不可逆，您的所有数据（包括帖子、评论、收藏）将被永久删除。</p>
+        <button class="delete" onclick="deleteAccount()">确认注销账户</button>
+      </div>
+    </main>
+  </div>
+
+  <div id="work-edit-modal" class="edit-modal">
+    <div class="edit-panel">
+      <div class="edit-panel-header">
+        <h3>编辑图文</h3>
+        <button type="button" class="secondary" onclick="closeWorkEditModal()" style="margin-top:0;">关闭</button>
+      </div>
+      <form onsubmit="submitWorkEdit(event)">
+        <label for="edit-category">选择话题</label>
+        <select id="edit-category">
+          <option value="生活分享">#生活分享</option>
+          <option value="摄影打卡">#摄影打卡</option>
+          <option value="前端开发">#前端开发</option>
+          <option value="运动健康">#运动健康</option>
+          <option value="AI人工智能">#AI人工智能</option>
+          <option value="推荐">#推荐</option>
+          <option value="资讯">#资讯</option>
+        </select>
+
+        <label for="edit-content">分享你的想法...</label>
+        <textarea id="edit-content" rows="7" placeholder="今天发生了什么有趣的事？"></textarea>
+
+        <label for="edit-image">更换图片</label>
+        <input type="file" id="edit-image" accept="image/*" onchange="previewEditImage(event)">
+
+        <div class="image-preview" id="edit-preview">
+          <span style="color: var(--text-secondary); font-size: 14px;">图片预览区域</span>
+        </div>
+
+        <div class="edit-actions">
+          <button type="button" class="secondary" onclick="closeWorkEditModal()">取消</button>
+          <button type="submit">保存修改</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="chapter-modal" class="edit-modal">
+    <div class="edit-panel">
+      <div class="edit-panel-header">
+        <h3 id="chapter-modal-title">新增章节</h3>
+        <button type="button" class="secondary" onclick="closeChapterModal()" style="margin-top:0;">关闭</button>
+      </div>
+      <form onsubmit="submitChapterForm(event)">
+        <label for="chapter-title-input">章节标题</label>
+        <input type="text" id="chapter-title-input" placeholder="例如：第 1 章 海边日记">
+
+        <label for="chapter-sort-input">分集排序</label>
+        <input type="text" id="chapter-sort-input" placeholder="数字越小越靠前">
+
+        <label for="chapter-content-input">章节正文</label>
+        <textarea id="chapter-content-input" rows="8" placeholder="填写这一章的完整文字内容"></textarea>
+
+        <label for="chapter-image-input">章节配图</label>
+        <input type="file" id="chapter-image-input" accept="image/*" onchange="previewChapterImage(event)">
+        <div class="image-preview" id="chapter-preview">
+          <span style="color: var(--text-secondary); font-size: 14px;">图片预览区域</span>
+        </div>
+
+        <div class="edit-actions">
+          <button type="button" class="secondary" onclick="closeChapterModal()">取消</button>
+          <button type="submit">保存章节</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="assets/components.js"></script>
+  <script src="api.js"></script>
+  <script>
+    function showSection(id, element) {
+      // Hide all sections
+      document.querySelectorAll('.section').forEach(sec => sec.classList.remove('active'));
+      // Show selected section
+      document.getElementById(id).classList.add('active');
+      
+      // Update menu active state
+      document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+      element.classList.add('active');
+      if (id === 'posts') loadMyWorks();
+      if (id === 'chapters') loadChapterWorkOptions();
+      if (id === 'follows') loadMyFollows();
+      if (id === 'comments') loadCommentWorks();
+    }
+
+    async function loadProfile() {
+      if (!getToken()) {
+        acf.toast('请先登录', 'warning');
+        window.location.href = 'index.html';
+        return;
+      }
+      try {
+        const user = await apiFetch('/api/users/me');
+        localStorage.setItem('current_user', JSON.stringify(user));
+        document.getElementById('welcome-user').textContent = `欢迎您，${user.nickname || user.account}`;
+        document.getElementById('profile-id').value = user.id;
+        document.getElementById('profile-contact').value = user.contact || user.account;
+        document.getElementById('profile-nickname').value = user.nickname || '';
+        document.getElementById('profile-bio').value = user.bio || '';
+        document.getElementById('profile-level').value = `${user.creator_level} / 热度 ${user.heat_score}`;
+        document.getElementById('profile-created').value = new Date(user.created_at).toLocaleString();
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
+    }
+
+    async function saveProfile() {
+      try {
+        const user = await apiFetch('/api/users/me', {
+          method: 'PATCH',
+          body: JSON.stringify({
+            nickname: document.getElementById('profile-nickname').value.trim(),
+            contact: document.getElementById('profile-contact').value.trim(),
+            bio: document.getElementById('profile-bio').value.trim()
+          })
+        });
+        localStorage.setItem('current_user', JSON.stringify(user));
+        acf.toast('信息已保存', 'success');
+        loadProfile();
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
+    }
+
+    const STATUS_LABEL = { pending: '待审核', approved: '已发布', rejected: '已驳回' };
+    const STATUS_BADGE = { pending: 'acf-badge-pending', approved: 'acf-badge-approved', rejected: 'acf-badge-rejected' };
+    let myWorksCache = [];
+    let editingWorkId = null;
+    let editingCoverImage = null;
+
+    async function loadMyWorks() {
+      const tbody = document.getElementById('my-works-body');
+      tbody.innerHTML = '<tr><td colspan="6">加载中...</td></tr>';
+      try {
+        const works = await apiFetch('/api/users/me/works');
+        myWorksCache = Array.isArray(works) ? works : (works.items || []);
+        tbody.innerHTML = myWorksCache.length ? myWorksCache.map(w => `
+          <tr>
+            <td>${w.id}</td>
+            <td>${w.title}</td>
+            <td>${w.category || '-'}</td>
+            <td>${new Date(w.created_at).toLocaleString()}</td>
+            <td><span class="acf-badge ${STATUS_BADGE[w.status] || 'acf-badge-info'}">${STATUS_LABEL[w.status] || w.status}</span></td>
+            <td>
+              <button class="acf-btn acf-btn-sm" onclick="editMyWork(${w.id})">编辑</button>
+              <button class="acf-btn acf-btn-sm acf-btn-danger" onclick="deleteMyWork(${w.id})">删除</button>
+            </td>
+          </tr>
+        `).join('') : '<tr><td colspan="6">暂无动态</td></tr>';
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6">${err.message}</td></tr>`;
+      }
+    }
+
+    async function editMyWork(id) {
+      let work = myWorksCache.find(w => Number(w.id) === Number(id));
+      try {
+        if (!work) work = await apiFetch(`/api/works/${id}`);
+        editingWorkId = work.id;
+        editingCoverImage = work.cover_image || null;
+        document.getElementById('edit-category').value = (work.category || '生活分享').replace('#', '');
+        document.getElementById('edit-content').value = work.summary || work.title || '';
+        document.getElementById('edit-image').value = '';
+        renderEditPreview(editingCoverImage);
+        document.getElementById('work-edit-modal').style.display = 'flex';
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
+    }
+
+    function closeWorkEditModal() {
+      document.getElementById('work-edit-modal').style.display = 'none';
+      editingWorkId = null;
+      editingCoverImage = null;
+    }
+
+    function normalizeImageUrl(url) {
+      if (!url) return '';
+      return url.startsWith('/uploads/') ? `${API_BASE_URL}${url}` : url;
+    }
+
+    function renderEditPreview(url) {
+      const preview = document.getElementById('edit-preview');
+      if (url) {
+        preview.innerHTML = `<img src="${normalizeImageUrl(url)}" alt="预览图">`;
+      } else {
+        preview.innerHTML = '<span style="color: var(--text-secondary); font-size: 14px;">图片预览区域</span>';
+      }
+    }
+
+    function previewEditImage(event) {
+      const file = event.target.files[0];
+      const preview = document.getElementById('edit-preview');
+      if (!file) return renderEditPreview(editingCoverImage);
+      const reader = new FileReader();
+      reader.onload = e => {
+        preview.innerHTML = `<img src="${e.target.result}" alt="预览图">`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function submitWorkEdit(event) {
+      event.preventDefault();
+      if (!editingWorkId) return;
+      const content = document.getElementById('edit-content').value.trim();
+      const category = document.getElementById('edit-category').value;
+      const file = document.getElementById('edit-image').files[0];
+      if (!content) return acf.toast('请输入内容', 'warning');
+      try {
+        let coverImage = editingCoverImage;
+        if (file) {
+          const formData = new FormData();
+          formData.append('file', file);
+          const uploaded = await apiFetch('/api/works/upload-image', { method: 'POST', body: formData });
+          coverImage = uploaded.url;
+        }
+        const title = content.length > 18 ? `${content.slice(0, 18)}...` : content;
+        await apiFetch(`/api/works/${editingWorkId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({
+            title,
+            summary: content,
+            category,
+            cover_image: coverImage
+          })
+        });
+        acf.toast('已更新，等待管理员重新审核', 'success');
+        closeWorkEditModal();
+        loadMyWorks();
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
+    }
+
+    async function deleteMyWork(id) {
+      if (!confirm('确定要删除这条作品吗？此操作不可恢复。')) return;
+      try {
+        await apiFetch(`/api/works/${id}`, { method: 'DELETE' });
+        acf.toast('已删除', 'success');
+        loadMyWorks();
+      } catch {}
+    }
+
+    let chapterWorksCache = [];
+    let currentChapterWorkId = null;
+    let currentChapters = [];
+    let editingChapterId = null;
+    let editingChapterImage = null;
+
+    async function loadChapterWorkOptions() {
+      const list = document.getElementById('chapter-work-list');
+      const body = document.getElementById('chapters-body');
+      list.innerHTML = '<div class="chapter-work-item">加载中...</div>';
+      body.innerHTML = acf.emptyState({ title: '正在加载章节', description: '请稍候' });
+      try {
+        const result = await apiFetch('/api/users/me/works');
+        chapterWorksCache = Array.isArray(result) ? result : (result.items || []);
+        if (!chapterWorksCache.length) {
+          list.innerHTML = '<div class="chapter-work-item">暂无稿件</div>';
+          body.innerHTML = acf.emptyState({ title: '暂无可管理稿件', description: '发布图文后可在这里管理章节' });
+          document.getElementById('chapter-current-title').textContent = '暂无稿件';
+          return;
+        }
+        if (!currentChapterWorkId || !chapterWorksCache.some(w => Number(w.id) === Number(currentChapterWorkId))) {
+          currentChapterWorkId = chapterWorksCache[0].id;
+        }
+        renderChapterWorkList();
+        await loadChaptersForSelectedWork(currentChapterWorkId);
+      } catch (err) {
+        list.innerHTML = `<div class="chapter-work-item">${err.message}</div>`;
+        body.innerHTML = acf.emptyState({ title: '加载失败', description: err.message });
+      }
+    }
+
+    function renderChapterWorkList() {
+      const list = document.getElementById('chapter-work-list');
+      list.innerHTML = chapterWorksCache.map(w => `
+        <div class="chapter-work-item ${Number(w.id) === Number(currentChapterWorkId) ? 'active' : ''}" onclick="selectChapterWork(${w.id})">
+          <strong>${w.title}</strong>
+          <div class="chapter-small">ID ${w.id} · ${w.category || '-'} · ${STATUS_LABEL[w.status] || w.status}</div>
+        </div>
+      `).join('');
+    }
+
+    async function selectChapterWork(workId) {
+      currentChapterWorkId = workId;
+      renderChapterWorkList();
+      await loadChaptersForSelectedWork(workId);
+    }
+
+    async function loadChaptersForSelectedWork(workId = currentChapterWorkId) {
+      const body = document.getElementById('chapters-body');
+      const work = chapterWorksCache.find(w => Number(w.id) === Number(workId));
+      if (!workId || !work) {
+        body.innerHTML = acf.emptyState({ title: '请选择稿件', description: '左侧选择一个稿件后管理章节' });
+        return;
+      }
+      document.getElementById('chapter-current-title').textContent = work.title;
+      document.getElementById('chapter-current-meta').textContent = `稿件ID ${work.id} · ${work.category || '-'} · ${STATUS_LABEL[work.status] || work.status}`;
+      body.innerHTML = acf.emptyState({ title: '正在加载章节', description: '请稍候' });
+      try {
+        currentChapters = await apiFetch(`/api/works/${workId}/chapters`);
+        renderChapterCards();
+      } catch (err) {
+        body.innerHTML = acf.emptyState({ title: '章节加载失败', description: err.message });
+      }
+    }
+
+    function renderChapterCards() {
+      const body = document.getElementById('chapters-body');
+      if (!currentChapters.length) {
+        body.innerHTML = acf.emptyState({ title: '暂无章节', description: '点击右上角新增章节' });
+        return;
+      }
+      body.innerHTML = currentChapters.map((ch, index) => `
+        <div class="chapter-card">
+          <div class="chapter-index">P${index + 1}</div>
+          <div>
+            <strong>${ch.title}</strong>
+            <div class="chapter-small">章节ID ${ch.id} · 排序 ${ch.sort_order} · ${STATUS_LABEL[ch.status] || ch.status}</div>
+            <div class="chapter-small">${(ch.content || '').slice(0, 70)}${(ch.content || '').length > 70 ? '...' : ''}</div>
+          </div>
+          <div class="chapter-card-actions">
+            <button class="acf-btn acf-btn-sm" onclick="moveChapter(${index}, -1)" ${index === 0 ? 'disabled' : ''}>上移</button>
+            <button class="acf-btn acf-btn-sm" onclick="moveChapter(${index}, 1)" ${index === currentChapters.length - 1 ? 'disabled' : ''}>下移</button>
+            <button class="acf-btn acf-btn-sm" onclick="openChapterModal(${ch.id})">编辑</button>
+            <button class="acf-btn acf-btn-sm acf-btn-danger" onclick="deleteChapter(${ch.id})">删除</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function openChapterModal(chapterId = null) {
+      if (!currentChapterWorkId) return acf.toast('请先选择稿件', 'warning');
+      const chapter = chapterId ? currentChapters.find(ch => Number(ch.id) === Number(chapterId)) : null;
+      editingChapterId = chapter ? chapter.id : null;
+      editingChapterImage = chapter?.image_url || null;
+      document.getElementById('chapter-modal-title').textContent = chapter ? '编辑章节' : '新增章节';
+      document.getElementById('chapter-title-input').value = chapter?.title || '';
+      document.getElementById('chapter-sort-input').value = chapter?.sort_order || (currentChapters.length + 1);
+      document.getElementById('chapter-content-input').value = chapter?.content || '';
+      document.getElementById('chapter-image-input').value = '';
+      renderChapterPreview(editingChapterImage);
+      document.getElementById('chapter-modal').style.display = 'flex';
+    }
+
+    function closeChapterModal() {
+      document.getElementById('chapter-modal').style.display = 'none';
+      editingChapterId = null;
+      editingChapterImage = null;
+    }
+
+    function renderChapterPreview(url) {
+      const preview = document.getElementById('chapter-preview');
+      if (url) {
+        preview.innerHTML = `<img src="${normalizeImageUrl(url)}" alt="章节配图">`;
+      } else {
+        preview.innerHTML = '<span style="color: var(--text-secondary); font-size: 14px;">图片预览区域</span>';
+      }
+    }
+
+    function previewChapterImage(event) {
+      const file = event.target.files[0];
+      if (!file) return renderChapterPreview(editingChapterImage);
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('chapter-preview').innerHTML = `<img src="${e.target.result}" alt="章节配图">`;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function submitChapterForm(event) {
+      event.preventDefault();
+      const title = document.getElementById('chapter-title-input').value.trim();
+      const content = document.getElementById('chapter-content-input').value.trim();
+      const sort_order = Number(document.getElementById('chapter-sort-input').value || currentChapters.length + 1);
+      const file = document.getElementById('chapter-image-input').files[0];
+      if (!title) return acf.toast('请输入章节标题', 'warning');
+      if (!content) return acf.toast('请输入章节正文', 'warning');
+      try {
+        let image_url = editingChapterImage;
+        if (file) {
+          const formData = new FormData();
+          formData.append('file', file);
+          const uploaded = await apiFetch('/api/works/upload-image', { method: 'POST', body: formData });
+          image_url = uploaded.url;
+        }
+        const payload = { title, content, image_url, sort_order };
+        if (editingChapterId) {
+          await apiFetch(`/api/works/chapters/${editingChapterId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+          acf.toast('章节已更新，等待审核', 'success');
+        } else {
+          await apiFetch(`/api/works/${currentChapterWorkId}/chapters`, { method: 'POST', body: JSON.stringify(payload) });
+          acf.toast('章节已新增，等待审核', 'success');
+        }
+        closeChapterModal();
+        await loadChaptersForSelectedWork();
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
+    }
+
+    async function moveChapter(index, direction) {
+      const targetIndex = index + direction;
+      if (targetIndex < 0 || targetIndex >= currentChapters.length) return;
+      const current = currentChapters[index];
+      const target = currentChapters[targetIndex];
+      try {
+        await Promise.all([
+          apiFetch(`/api/works/chapters/${current.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ sort_order: target.sort_order })
+          }),
+          apiFetch(`/api/works/chapters/${target.id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ sort_order: current.sort_order })
+          })
+        ]);
+        acf.toast('排序已更新，等待审核', 'success');
+        await loadChaptersForSelectedWork();
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
+    }
+
+    async function deleteChapter(id) {
+      if (!confirm('确定删除该章节吗？')) return;
+      try {
+        await apiFetch(`/api/works/chapters/${id}`, { method: 'DELETE' });
+        acf.toast('章节已删除，作品等待重新审核', 'success');
+        loadChaptersForSelectedWork();
+      } catch {}
+    }
+
+    async function loadMyFollows() {
+      const tbody = document.getElementById('follows-body');
+      try {
+        const result = await apiFetch('/api/users/me/follows');
+        const follows = Array.isArray(result) ? result : (result.items || []);
+        tbody.innerHTML = follows.length ? follows.map(f => {
+          const u = f.followed || {};
+          const userId = u.id || f.followed_id;
+          const nickname = u.nickname || u.account || `用户${userId}`;
+          return `<tr>
+            <td>${userId}</td>
+            <td><a href="UserHome.html?id=${userId}" style="color:#1d9bf0;font-weight:700;text-decoration:none;">${nickname}</a></td>
+            <td>${u.account || '-'}</td>
+            <td>${u.creator_level || '-'}</td>
+            <td>
+              <button class="acf-btn acf-btn-sm" onclick="window.location.href='UserHome.html?id=${userId}'">进入主页</button>
+              <button class="delete" style="padding:6px 12px;font-size:12px;" onclick="unfollowUser(${userId})">取消关注</button>
+            </td>
+          </tr>`;
+        }).join('') : '<tr><td colspan="5">暂无关注</td></tr>';
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5">${err.message}</td></tr>`;
+      }
+    }
+
+    async function unfollowUser(id) {
+      try {
+        await apiFetch(`/api/users/${id}/follow`, { method: 'POST' });
+        loadMyFollows();
+      } catch {}
+    }
+
+    async function loadCommentWorks() {
+      const tbody = document.getElementById('my-comments-body');
+      document.getElementById('comment-back-btn').style.display = 'none';
+      document.getElementById('comment-work-title').textContent = '请选择一个帖子查看其下方评论';
+      document.getElementById('comments-table-head').innerHTML = `
+        <th>帖子ID</th>
+        <th>标题</th>
+        <th>分类</th>
+        <th>评论数</th>
+        <th>操作</th>
+      `;
+      try {
+        const works = await apiFetch('/api/users/me/works');
+        tbody.innerHTML = works.length ? works.map(w => `
+          <tr>
+            <td>${w.id}</td>
+            <td>${w.title}</td>
+            <td>${w.category || '-'}</td>
+            <td>${w.comment_count || 0}</td>
+            <td><button class="acf-btn acf-btn-sm" onclick="loadWorkComments(${w.id}, '${String(w.title).replace(/'/g, "\\'")}')">查看评论</button></td>
+          </tr>
+        `).join('') : '<tr><td colspan="5">暂无帖子</td></tr>';
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5">${err.message}</td></tr>`;
+      }
+    }
+
+    async function loadWorkComments(workId, title) {
+      const tbody = document.getElementById('my-comments-body');
+      document.getElementById('comment-back-btn').style.display = '';
+      document.getElementById('comment-work-title').textContent = `当前帖子：${title}`;
+      document.getElementById('comments-table-head').innerHTML = `
+        <th>评论ID</th>
+        <th>评论人</th>
+        <th>内容</th>
+        <th>时间</th>
+        <th>操作</th>
+      `;
+      tbody.innerHTML = '<tr><td colspan="5">加载中...</td></tr>';
+      try {
+        const comments = await apiFetch(`/api/works/${workId}/all-comments`);
+        tbody.innerHTML = comments.length ? comments.map(c => `
+          <tr>
+            <td>${c.id}</td>
+            <td>${c.user?.nickname || c.user?.account || '-'}</td>
+            <td>${c.content}</td>
+            <td>${new Date(c.created_at).toLocaleString()}</td>
+            <td><button class="delete" style="padding: 6px 12px; font-size: 12px;" onclick="deleteComment(${c.id}, ${workId}, '${String(title).replace(/'/g, "\\'")}')">删除</button></td>
+          </tr>
+        `).join('') : '<tr><td colspan="5">该帖子暂无评论</td></tr>';
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="5">${err.message}</td></tr>`;
+      }
+    }
+
+    async function deleteComment(id, workId, title) {
+      if (!confirm('确定要删除这条评论吗？')) return;
+      try {
+        await apiFetch(`/api/comments/${id}`, { method: 'DELETE' });
+        if (workId) {
+          loadWorkComments(workId, title);
+        } else {
+          loadCommentWorks();
+        }
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
+    }
+
+    async function deleteAccount() {
+      if (!confirm('确定要注销吗？此操作不可恢复。')) return;
+      try {
+        await apiFetch('/api/users/me', { method: 'DELETE' });
+        clearSession();
+        acf.toast('账号已注销', 'success');
+        window.location.href = 'index.html';
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
+    }
+
+    loadProfile();
+    loadMyWorks();
+  </script>
+</body>

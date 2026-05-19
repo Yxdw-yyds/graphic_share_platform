@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>用户主页 - αcFun</title>
+  <link rel="stylesheet" href="assets/styles.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, "Microsoft YaHei", sans-serif;
+      background: var(--background-color);
+      color: var(--text-main);
+    }
+    .topbar {
+      height: 64px;
+      background: #fff;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .brand {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--primary-color);
+      cursor: pointer;
+    }
+    .wrap {
+      max-width: 900px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .profile-card {
+      background: #fff;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      padding: 24px;
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      margin-bottom: 18px;
+    }
+    .avatar {
+      width: 78px;
+      height: 78px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #e8f5fd;
+    }
+    .profile-main h1 {
+      margin: 0 0 8px;
+      font-size: 24px;
+    }
+    .profile-meta {
+      color: var(--text-secondary);
+      font-size: 14px;
+      line-height: 1.7;
+    }
+    .work-card {
+      background: #fff;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      padding: 20px;
+      margin-bottom: 16px;
+    }
+    .work-title {
+      font-size: 18px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    .work-summary {
+      white-space: pre-wrap;
+      line-height: 1.7;
+      color: #273340;
+    }
+    .work-img {
+      width: 100%;
+      max-height: 420px;
+      object-fit: cover;
+      border-radius: var(--radius-md);
+      margin-top: 14px;
+    }
+    .work-meta {
+      margin-top: 12px;
+      color: var(--text-secondary);
+      font-size: 13px;
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand" onclick="window.location.href='index.html'">αcFun</div>
+    <button class="acf-btn" onclick="history.back()">返回</button>
+  </header>
+
+  <main class="wrap">
+    <section class="profile-card" id="profile-card">
+      <div class="acf-skeleton acf-skeleton-card" style="width:100%;"></div>
+    </section>
+    <section id="works-list"></section>
+  </main>
+
+  <script src="assets/components.js"></script>
+  <script src="api.js"></script>
+  <script>
+    const params = new URLSearchParams(location.search);
+    const userId = Number(params.get('id'));
+
+    function imageUrl(url) {
+      if (!url) return '';
+      return url.startsWith('/uploads/') ? `${API_BASE_URL}${url}` : url;
+    }
+
+    function renderProfile(user) {
+      const avatar = user.avatar_url || `https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(user.nickname || user.account)}`;
+      document.getElementById('profile-card').innerHTML = `
+        <img class="avatar" src="${avatar}" alt="${user.nickname || user.account}">
+        <div class="profile-main">
+          <h1>${user.nickname || user.account}</h1>
+          <div class="profile-meta">
+            <div>用户ID：${user.id}</div>
+            <div>账号：${user.account}</div>
+            <div>创作等级：${user.creator_level} / 热度 ${user.heat_score}</div>
+            <div>个人简介：${user.bio || '这个用户还没有填写简介'}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderWorks(works) {
+      const box = document.getElementById('works-list');
+      if (!works.length) {
+        box.innerHTML = acf.emptyState({ title: '暂无公开图文', description: '该用户还没有已审核通过的作品' });
+        return;
+      }
+      box.innerHTML = works.map(w => `
+        <article class="work-card">
+          <div class="work-title">#${w.category} ${w.title}</div>
+          <div class="work-summary">${w.summary || ''}</div>
+          ${w.cover_image ? `<img class="work-img" src="${imageUrl(w.cover_image)}" alt="${w.title}">` : ''}
+          <div class="work-meta">
+            <span>${new Date(w.created_at).toLocaleString()}</span>
+            <span>${w.like_count || 0} 点赞</span>
+            <span>${w.favorite_count || 0} 收藏</span>
+            <span>${w.comment_count || 0} 评论</span>
+            <span>热度 ${Math.round(w.heat || 0)}</span>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    async function init() {
+      if (!userId) {
+        document.getElementById('profile-card').innerHTML = '<div style="color:#e0245e;">用户ID无效</div>';
+        return;
+      }
+      try {
+        const [user, works] = await Promise.all([
+          apiFetch(`/api/users/${userId}`, { silent: true }),
+          apiFetch(`/api/users/${userId}/works`, { silent: true })
+        ]);
+        renderProfile(user);
+        renderWorks(Array.isArray(works) ? works : (works.items || []));
+      } catch (err) {
+        document.getElementById('profile-card').innerHTML = `<div style="color:#e0245e;">${err.message}</div>`;
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

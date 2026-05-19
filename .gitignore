@@ -1,0 +1,35 @@
+# Environment and secrets
+.env
+*.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
+
+# Local data and runtime files
+*.db
+logs/
+uploads/
+platform-deploy.zip
+
+# IDE/editor
+.vscode/
+.idea/
+.claude/
+
+# Android / Gradle
+android-app/.gradle/
+android-app/.kotlin/
+android-app/.idea/
+android-app/**/build/
+android-app/local.properties
+*.apk
+*.aab
+*.jks
+
+# OS files
+.DS_Store
+Thumbs.db
