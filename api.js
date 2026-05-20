@@ -14,13 +14,13 @@ function saveSession(payload) {
   localStorage.setItem("current_user", JSON.stringify(payload.user));
   localStorage.setItem("user", payload.user.nickname || payload.user.account);
 }
-
+//
 function clearSession() {
   localStorage.removeItem("access_token");
   localStorage.removeItem("current_user");
   localStorage.removeItem("user");
 }
-
+//
 async function apiFetch(path, options = {}) {
   const headers = new Headers(options.headers || {});
   if (!(options.body instanceof FormData)) {
