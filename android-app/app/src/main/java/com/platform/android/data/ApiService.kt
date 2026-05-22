@@ -22,7 +22,7 @@ interface ApiService {
     suspend fun loginCode(@Body body: LoginCodeRequest): TokenDto
 
     @POST("/api/auth/send-code")
-    suspend fun sendCode(@Body body: SendCodeRequest): Map<String, String>
+    suspend fun sendCode(@Body body: SendCodeRequest): SendCodeResponse
 
     @POST("/api/auth/register")
     suspend fun register(@Body body: RegisterRequest): TokenDto

@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     create_demo_data: bool = True
     debug: bool = True
     cors_origins: str = "*"  # 逗号分隔，例：http://localhost:5173,http://127.0.0.1:8001
+    smtp_host: str = "smtp.qq.com"
+    smtp_port: int = 465
+    smtp_username: str = "2412030860@qq.com"
+    smtp_password: str = ""
+    smtp_sender: str = "2412030860@qq.com"
+    smtp_use_ssl: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

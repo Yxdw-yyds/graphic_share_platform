@@ -74,6 +74,8 @@ class PlatformViewModel(
 
     fun clearMessage() = _state.update { it.copy(message = null) }
 
+    fun closeWorkDetail() = _state.update { it.copy(currentWork = null, chapters = emptyList(), comments = emptyList()) }
+
     fun login(account: String, password: String) = loginWithRole(account, password, expectedAdmin = false)
 
     fun loginAdmin(account: String, password: String) = loginWithRole(account, password, expectedAdmin = true)
@@ -109,7 +111,7 @@ class PlatformViewModel(
     fun sendCode(account: String, purpose: String = "register") = run(null) {
         validateAccount(account)
         val res = api.sendCode(SendCodeRequest(account.trim(), purpose))
-        _state.update { it.copy(message = "验证码：${res["code"] ?: "已发送"}") }
+        _state.update { it.copy(message = res.message) }
     }
 
     fun logout() = viewModelScope.launch {

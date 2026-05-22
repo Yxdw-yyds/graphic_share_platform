@@ -123,6 +123,7 @@ data class TrendingTopicDto(
 @Serializable data class LoginPasswordRequest(val account: String, val password: String)
 @Serializable data class LoginCodeRequest(val account: String, val code: String)
 @Serializable data class SendCodeRequest(val account: String, val purpose: String)
+@Serializable data class SendCodeResponse(val message: String, val code: String? = null, val sent: Boolean = false)
 @Serializable data class RegisterRequest(val account: String, val password: String, val code: String, val nickname: String? = null)
 @Serializable data class ResetPasswordRequest(val account: String, val code: String, @SerialName("new_password") val newPassword: String)
 

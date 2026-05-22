@@ -164,6 +164,7 @@ private fun PlatformApp(container: AppContainer) {
 
     BackHandler(enabled = !session.isAdmin && tab != "home") {
         tab = "home"
+        vm.closeWorkDetail()
         vm.refreshHome()
     }
 
@@ -179,13 +180,14 @@ private fun PlatformApp(container: AppContainer) {
                     onKeywordChange = { topKeyword = it },
                     onSearch = {
                         tab = "home"
+                        vm.closeWorkDetail()
                         vm.refreshHome(topKeyword)
                     },
                 )
             },
             snackbarHost = {},
             floatingActionButton = {
-                if (!session.isAdmin && tab != "publish" && tab != "mine") {
+                if (!session.isAdmin && tab != "publish" && tab != "mine" && state.currentWork == null) {
                     FloatingActionButton(
                         onClick = {
                             tab = if (session.isLoggedIn) "publish" else "mine"
@@ -204,14 +206,15 @@ private fun PlatformApp(container: AppContainer) {
                         NavItem("管理后台", "admin", "admin", "🛠") { tab = "admin"; vm.loadAdmin() }
                         NavItem("退出登录", "logout", tab, "↩") { vm.logout(); tab = "home" }
                     } else {
-                        NavItem("首页", "home", tab, "🏠") { tab = "home"; vm.refreshHome() }
-                        NavItem("热门", "hot", tab, "🔥") { tab = "hot"; vm.refreshHome(hot = true) }
-                        NavItem("资讯", "news", tab, "📰") { tab = "news"; vm.refreshHome(category = "资讯") }
+                        NavItem("首页", "home", tab, "🏠") { tab = "home"; vm.closeWorkDetail(); vm.refreshHome() }
+                        NavItem("热门", "hot", tab, "🔥") { tab = "hot"; vm.closeWorkDetail(); vm.refreshHome(hot = true) }
+                        NavItem("资讯", "news", tab, "📰") { tab = "news"; vm.closeWorkDetail(); vm.refreshHome(category = "资讯") }
                         NavItem("收藏", "favorites", tab, "⭐") {
                             tab = "favorites"
+                            vm.closeWorkDetail()
                             if (session.isLoggedIn) vm.loadMine()
                         }
-                        NavItem("我的", "mine", tab, "👤") { tab = "mine"; if (session.isLoggedIn) vm.loadMine() }
+                        NavItem("我的", "mine", tab, "👤") { tab = "mine"; vm.closeWorkDetail(); if (session.isLoggedIn) vm.loadMine() }
                     }
                 }
             },
@@ -345,6 +348,13 @@ private fun AppTopBar(
                                         )
                                     }
                                     innerTextField()
+                                }
+                                TextButton(
+                                    onClick = onSearch,
+                                    modifier = Modifier.height(34.dp),
+                                    contentPadding = PaddingValues(horizontal = 8.dp)
+                                ) {
+                                    Text("搜索", color = AcPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
                                 }
                             }
                         }
@@ -672,7 +682,10 @@ private fun HomeScreen(state: PlatformUiState, vm: PlatformViewModel, initialCat
     }
 
     BackHandler(enabled = reportTarget != null) { reportTarget = null }
-    BackHandler(enabled = detailId != null) { detailId = null }
+    BackHandler(enabled = detailId != null) {
+        detailId = null
+        vm.closeWorkDetail()
+    }
     reportTarget?.let { (targetType, targetId) ->
         ReportDialog(
             title = "举报图文内容",
@@ -694,7 +707,10 @@ private fun HomeScreen(state: PlatformUiState, vm: PlatformViewModel, initialCat
     if (detailId != null) {
         LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
-                WorkDetail(state, vm, detailId!!) { detailId = null }
+                WorkDetail(state, vm, detailId!!) {
+                    detailId = null
+                    vm.closeWorkDetail()
+                }
             }
         }
     } else {
@@ -738,7 +754,10 @@ private fun FavoritesScreen(state: PlatformUiState, vm: PlatformViewModel) {
     var reportTarget by remember { mutableStateOf<Pair<String, Int>?>(null) }
     LaunchedEffect(Unit) { vm.loadMine() }
     BackHandler(enabled = reportTarget != null) { reportTarget = null }
-    BackHandler(enabled = detailId != null) { detailId = null }
+    BackHandler(enabled = detailId != null) {
+        detailId = null
+        vm.closeWorkDetail()
+    }
     reportTarget?.let { (targetType, targetId) ->
         ReportDialog(
             title = "举报图文内容",
@@ -752,7 +771,12 @@ private fun FavoritesScreen(state: PlatformUiState, vm: PlatformViewModel) {
     RefreshBox(refreshing = state.loading, onRefresh = { vm.loadMine() }) {
         if (detailId != null) {
             LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                item { WorkDetail(state, vm, detailId!!) { detailId = null } }
+                item {
+                    WorkDetail(state, vm, detailId!!) {
+                        detailId = null
+                        vm.closeWorkDetail()
+                    }
+                }
             }
         } else {
             LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1260,17 +1284,22 @@ private fun ChapterManager(state: PlatformUiState, vm: PlatformViewModel) {
     }
     AppCard {
         if (state.myWorks.isEmpty()) {
-            Text("暂无稿件，发布内容后可管理章节", color = AcMuted)
+            Text("暂无动态，发布内容后可创建合集", color = AcMuted)
             return@AppCard
         }
-        Text("选择稿件", fontWeight = FontWeight.Bold)
+        Text("合集管理", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+        Text("选择一个已有动态作为合集，再维护它下面的章节内容。动态本身请到个人动态里编辑。", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+        Text("选择已有动态", fontWeight = FontWeight.Bold)
         state.myWorks.forEach { work ->
             Row(Modifier.fillMaxWidth().clickable {
                 selectedWorkId = work.id
                 vm.loadWorkChapters(work.id)
             }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(if (work.id == selectedWorkId) "●" else "○", color = AcPrimary, modifier = Modifier.width(24.dp))
-                Text(work.title, modifier = Modifier.weight(1f), maxLines = 1)
+                Column(Modifier.weight(1f)) {
+                    Text(work.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold)
+                    Text("#${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+                }
             }
         }
         
@@ -1290,7 +1319,7 @@ private fun NewChapterForm(workId: Int, nextSort: Int, vm: PlatformViewModel) {
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
     if (!show) {
-        SecondaryButton("新增章节", Modifier.fillMaxWidth()) { show = true }
+        SecondaryButton("新增合集章节", Modifier.fillMaxWidth()) { show = true }
         return
     }
     AppTextField(title, { title = it }, "章节标题")
@@ -1447,7 +1476,15 @@ private fun FollowCard(follow: FollowDto, vm: PlatformViewModel) {
                 Text(user?.nickname ?: "用户${follow.followedId}", fontWeight = FontWeight.Bold)
                 Text(user?.bio ?: "暂无简介", style = MaterialTheme.typography.bodySmall, color = AcMuted)
             }
-            SecondaryButton("取消关注", Modifier.width(100.dp)) { vm.followAuthor(user?.id ?: follow.followedId) }
+            Button(
+                onClick = { vm.followAuthor(user?.id ?: follow.followedId) },
+                modifier = Modifier.width(112.dp).height(40.dp),
+                shape = RoundedCornerShape(999.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8F5FD), contentColor = AcPrimary),
+                contentPadding = PaddingValues(horizontal = 10.dp)
+            ) {
+                Text("取消关注", fontWeight = FontWeight.Bold, maxLines = 1, fontSize = 13.sp)
+            }
         }
     }
 }
@@ -1853,24 +1890,27 @@ private fun SmallTab(text: String, selected: Boolean, modifier: Modifier = Modif
         ),
         contentPadding = PaddingValues(horizontal = 8.dp)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Text(text, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
             if (badgeCount > 0) {
                 Box(
                     modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 5.dp, y = (-9).dp)
+                        .height(18.dp)
                         .widthIn(min = 18.dp)
-                        .heightIn(min = 18.dp)
                         .clip(CircleShape)
-                        .background(if (selected) Color.White else AcPrimary),
+                        .background(Color(0xFFFF3B30))
+                        .padding(horizontal = 5.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
                         text = if (badgeCount > 99) "99+" else badgeCount.toString(),
-                        color = if (selected) AcPrimary else Color.White,
-                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White,
                         fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 4.dp)
+                        fontWeight = FontWeight.Black,
+                        maxLines = 1,
+                        textAlign = TextAlign.Center,
                     )
                 }
             }

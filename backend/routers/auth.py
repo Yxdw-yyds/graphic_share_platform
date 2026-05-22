@@ -10,6 +10,7 @@ from backend.deps import get_current_user
 from backend.models import User, VerificationCode
 from backend.schemas.common import Token, UserOut
 from backend.schemas.requests import LoginCodeIn, LoginPasswordIn, RegisterIn, ResetPasswordIn, SendCodeIn
+from backend.services.email_codes import send_verification_email
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -48,6 +49,11 @@ def verify_code(db: Session, account: str, purpose: str, code: str) -> None:
 @router.post("/send-code")
 def send_code(payload: SendCodeIn, db: Session = Depends(get_db)):
     code = str(randint(100000, 999999))
+    sent = False
+    try:
+        sent = send_verification_email(payload.account, code, payload.purpose)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"验证码邮件发送失败：{exc}") from exc
     record = VerificationCode(
         account=payload.account,
         purpose=payload.purpose,
@@ -56,7 +62,13 @@ def send_code(payload: SendCodeIn, db: Session = Depends(get_db)):
     )
     db.add(record)
     db.commit()
-    return {"message": "验证码已生成", "code": code}
+    response = {
+        "message": "验证码已发送，请查收邮箱" if sent else f"验证码：{code}",
+        "sent": sent,
+    }
+    if not sent:
+        response["code"] = code
+    return response
 
 
 @router.post("/register", response_model=Token)
