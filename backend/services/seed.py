@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from backend.core.security import hash_password
 from backend.models import Chapter, User, Work
+from backend.services.demo_images import demo_image_url
 from backend.services.metrics import refresh_work_metrics
 
 
@@ -25,9 +26,9 @@ def seed_data(db: Session) -> None:
     db.flush()
 
     samples = [
-        ("今天的天空真的好漂亮", "生活分享", "今天的天空真的好漂亮，心情也跟着变好了。", "https://images.unsplash.com/photo-1506744038136-46273834b3fb?fit=crop&w=600&q=80"),
-        ("新徒步路线记录", "运动健康", "探索了一条新徒步路线，风景超棒。", "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?fit=crop&w=600&q=80"),
-        ("第一次拉花咖啡", "生活分享", "刚学会了拉花咖啡，第一次做成图案。", "https://images.unsplash.com/photo-1541167760496-1628856ab772?fit=crop&w=600&q=80"),
+        ("今天的天空真的好漂亮", "生活分享", "今天的天空真的好漂亮，心情也跟着变好了。", demo_image_url("demo-sky.jpg")),
+        ("新徒步路线记录", "运动健康", "探索了一条新徒步路线，风景超棒。", demo_image_url("demo-hike.jpg")),
+        ("第一次拉花咖啡", "生活分享", "刚学会了拉花咖啡，第一次做成图案。", demo_image_url("demo-coffee.jpg")),
     ]
     for title, category, content, cover in samples:
         work = Work(

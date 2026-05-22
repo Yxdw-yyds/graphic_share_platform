@@ -2,12 +2,15 @@ package com.platform.android
 
 import android.net.Uri
 import android.os.Bundle
+import androidx.activity.compose.BackHandler
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,9 +24,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -33,7 +38,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.OutlinedTextField
@@ -60,14 +67,25 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.platform.android.BuildConfig
 import com.platform.android.data.AppContainer
 import com.platform.android.data.ChapterDto
 import com.platform.android.data.CommentDto
@@ -115,62 +133,150 @@ private fun PlatformApp(container: AppContainer) {
     val state by vm.state.collectAsState()
     val session by vm.session.collectAsState()
     var tab by remember { mutableStateOf("home") }
+    var topKeyword by remember { mutableStateOf("") }
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(state.message) {
         state.message?.let {
             snackbar.showSnackbar(it)
+            if (it.contains("作品已提交审核")) {
+                tab = "mine"
+                vm.loadMine()
+            }
             vm.clearMessage()
         }
     }
 
-    Scaffold(
-        containerColor = AcBg,
-        topBar = { AppTopBar(session.nickname ?: "αcFun", state.loading) },
-        snackbarHost = { SnackbarHost(snackbar) },
-        bottomBar = {
-            NavigationBar(containerColor = Color.White, tonalElevation = 2.dp) {
-                NavItem("首页", "home", tab) { tab = "home"; vm.refreshHome() }
-                NavItem("发布", "publish", tab) { tab = "publish" }
-                NavItem("我的", "mine", tab) { tab = "mine"; if (session.isLoggedIn) vm.loadMine() }
-                if (session.isAdmin) NavItem("管理", "admin", tab) { tab = "admin"; vm.loadAdmin() }
-            }
-        },
-    ) { padding ->
-        Surface(Modifier.padding(padding).fillMaxSize(), color = AcBg) {
-            when {
-                !session.isLoggedIn && tab != "home" -> LoginScreen(vm)
-                tab == "publish" -> PublishScreen(vm)
-                tab == "mine" -> MineScreen(state, vm)
-                tab == "admin" && session.isAdmin -> AdminScreen(state, vm)
-                else -> HomeScreen(state, vm)
+    LaunchedEffect(session.isAdmin, session.isLoggedIn) {
+        if (session.isAdmin) {
+            tab = "admin"
+            vm.loadAdmin()
+        } else if (!session.isLoggedIn && tab == "admin") {
+            tab = "home"
+        }
+    }
+
+    LaunchedEffect(session.isLoggedIn, session.isAdmin, session.userId) {
+        if (session.isLoggedIn && !session.isAdmin) {
+            vm.loadMine()
+        }
+    }
+
+    BackHandler(enabled = !session.isAdmin && tab != "home") {
+        tab = "home"
+        vm.refreshHome()
+    }
+
+    Box(Modifier.fillMaxSize()) {
+        Scaffold(
+            containerColor = AcBg,
+            topBar = {
+                AppTopBar(
+                    title = if (session.isAdmin) "后台管理系统" else session.nickname ?: "游客",
+                    loading = state.loading,
+                    isAdmin = session.isAdmin,
+                    keyword = topKeyword,
+                    onKeywordChange = { topKeyword = it },
+                    onSearch = {
+                        tab = "home"
+                        vm.refreshHome(topKeyword)
+                    },
+                )
+            },
+            snackbarHost = {},
+            floatingActionButton = {
+                if (!session.isAdmin && tab != "publish" && tab != "mine") {
+                    FloatingActionButton(
+                        onClick = {
+                            tab = if (session.isLoggedIn) "publish" else "mine"
+                        },
+                        containerColor = AcPrimary,
+                        contentColor = Color.White,
+                        shape = CircleShape,
+                    ) {
+                        Text("+", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    }
+                }
+            },
+            bottomBar = {
+                NavigationBar(containerColor = Color.White, tonalElevation = 2.dp) {
+                    if (session.isAdmin) {
+                        NavItem("管理后台", "admin", "admin", "🛠") { tab = "admin"; vm.loadAdmin() }
+                        NavItem("退出登录", "logout", tab, "↩") { vm.logout(); tab = "home" }
+                    } else {
+                        NavItem("首页", "home", tab, "🏠") { tab = "home"; vm.refreshHome() }
+                        NavItem("热门", "hot", tab, "🔥") { tab = "hot"; vm.refreshHome(hot = true) }
+                        NavItem("资讯", "news", tab, "📰") { tab = "news"; vm.refreshHome(category = "资讯") }
+                        NavItem("收藏", "favorites", tab, "⭐") {
+                            tab = "favorites"
+                            if (session.isLoggedIn) vm.loadMine()
+                        }
+                        NavItem("我的", "mine", tab, "👤") { tab = "mine"; if (session.isLoggedIn) vm.loadMine() }
+                    }
+                }
+            },
+        ) { padding ->
+            Surface(Modifier.padding(padding).fillMaxSize(), color = AcBg) {
+                when {
+                    session.isAdmin -> AdminScreen(state, vm)
+                    !session.isLoggedIn -> HomeScreen(state, vm, "全部")
+                    tab == "publish" -> PublishScreen(vm)
+                    tab == "mine" -> MineScreen(state, vm)
+                    tab == "favorites" -> FavoritesScreen(state, vm)
+                    tab == "hot" -> HomeScreen(state, vm, "热门")
+                    tab == "news" -> HomeScreen(state, vm, "资讯")
+                    else -> HomeScreen(state, vm, "全部")
+                }
             }
         }
+        if (!session.isLoggedIn) {
+            LoginFloatingDialog(vm)
+        }
+        SnackbarHost(
+            hostState = snackbar,
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = 72.dp, start = 16.dp, end = 16.dp)
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+private fun RefreshBox(
+    refreshing: Boolean,
+    onRefresh: () -> Unit,
+    content: @Composable () -> Unit,
+) {
+    val pullState = rememberPullRefreshState(refreshing, onRefresh)
+    Box(Modifier.fillMaxSize().pullRefresh(pullState)) {
+        content()
+        PullRefreshIndicator(
+            refreshing = refreshing,
+            state = pullState,
+            modifier = Modifier.align(Alignment.TopCenter),
+            backgroundColor = Color.White,
+            contentColor = AcPrimary,
+        )
     }
 }
 
 @Composable
-private fun RowScope.NavItem(label: String, route: String, current: String, onClick: () -> Unit) {
+private fun RowScope.NavItem(label: String, route: String, current: String, icon: String, onClick: () -> Unit) {
     val selected = current == route
     Column(
         modifier = Modifier
             .weight(1f)
-            .height(58.dp)
+            .height(62.dp)
             .clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
-        Box(
-            Modifier
-                .width(24.dp)
-                .height(4.dp)
-                .clip(RoundedCornerShape(999.dp))
-                .background(if (selected) AcPrimary else Color.Transparent)
-        )
-        Spacer(Modifier.height(6.dp))
+        Text(icon, style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(2.dp))
         Text(
             label,
-            color = if (selected) AcText else AcMuted,
+            color = if (selected) AcPrimary else AcText,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
             style = MaterialTheme.typography.labelMedium
         )
@@ -179,18 +285,72 @@ private fun RowScope.NavItem(label: String, route: String, current: String, onCl
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun AppTopBar(title: String, loading: Boolean) {
+private fun AppTopBar(
+    title: String,
+    loading: Boolean,
+    isAdmin: Boolean,
+    keyword: String,
+    onKeywordChange: (String) -> Unit,
+    onSearch: () -> Unit,
+) {
     TopAppBar(
         title = {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("αcFun", color = AcPrimary, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
-                Text(
-                    if (loading) "加载中" else title,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AcMuted,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+            if (isAdmin) {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text("αcFun", color = AcPrimary, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        if (loading) "加载中" else title,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AcMuted,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            } else {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(end = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("αcFun", color = AcPrimary, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+                    BasicTextField(
+                        value = keyword,
+                        onValueChange = onKeywordChange,
+                        singleLine = true,
+                        textStyle = TextStyle(color = AcText, fontWeight = FontWeight.Normal, fontSize = 14.sp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(AcBorder)
+                            .clickable(onClick = onSearch)
+                            .padding(horizontal = 14.dp),
+                        decorationBox = { innerTextField ->
+                            Row(
+                                modifier = Modifier.fillMaxSize(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("🔍", fontSize = 13.sp)
+                                Spacer(Modifier.width(6.dp))
+                                Box(Modifier.weight(1f)) {
+                                    if (keyword.isBlank()) {
+                                        Text(
+                                            if (loading) "正在加载内容..." else "搜索感兴趣的内容...",
+                                            color = AcMuted,
+                                            fontSize = 12.sp,
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
+                        }
+                    )
+                    HeaderAvatar(title)
+                }
             }
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.White, titleContentColor = AcText),
@@ -199,15 +359,39 @@ private fun AppTopBar(title: String, loading: Boolean) {
 
 @Composable
 private fun LoginScreen(vm: PlatformViewModel) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("login_cache", android.content.Context.MODE_PRIVATE) }
+    var entrance by remember { mutableStateOf("user") }
     var mode by remember { mutableStateOf("login_pwd") }
-    var account by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    var loginAccount by remember { mutableStateOf(prefs.getString("account", "") ?: "") }
+    var adminAccount by remember { mutableStateOf(prefs.getString("account", "") ?: "") }
+    var otpAccount by remember { mutableStateOf("") }
+    var registerAccount by remember { mutableStateOf("") }
+    var resetAccount by remember { mutableStateOf("") }
+    var loginPassword by remember { mutableStateOf(prefs.getString("password", "") ?: "") }
+    var adminPassword by remember { mutableStateOf(prefs.getString("password", "") ?: "") }
+    var registerPassword by remember { mutableStateOf("") }
+    var resetPassword by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var nickname by remember { mutableStateOf("") }
+    var rememberPassword by remember { mutableStateOf(prefs.getBoolean("remember", false)) }
+    fun cacheLogin(account: String, password: String) {
+        prefs.edit().apply {
+            putBoolean("remember", rememberPassword)
+            if (rememberPassword) {
+                putString("account", account)
+                putString("password", password)
+            } else {
+                remove("account")
+                remove("password")
+            }
+        }.apply()
+    }
     
     LazyColumn(contentPadding = PaddingValues(18.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
             val title = when(mode) {
+                "admin_pwd" -> "管理员登录"
                 "register" -> "注册账号"
                 "forgot" -> "重置密码"
                 "login_otp" -> "验证码登录"
@@ -218,45 +402,222 @@ private fun LoginScreen(vm: PlatformViewModel) {
         }
         item {
             AppCard {
-                AppTextField(account, { account = it }, "手机号或邮箱")
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                    SmallTab("普通用户", entrance == "user", Modifier.weight(1f)) {
+                        entrance = "user"
+                        mode = "login_pwd"
+                    }
+                    SmallTab("管理员", entrance == "admin", Modifier.weight(1f)) {
+                        entrance = "admin"
+                        mode = "admin_pwd"
+                    }
+                }
                 
-                if (mode == "login_pwd") {
-                    AppTextField(password, { password = it }, "密码", password = true)
-                    PrimaryButton("登录", Modifier.fillMaxWidth()) { vm.login(account, password) }
+                if (mode == "admin_pwd") {
+                    AppTextField(adminAccount, { adminAccount = it }, "手机号或邮箱")
+                    AppTextField(adminPassword, { adminPassword = it }, "管理员密码", password = true)
+                    RememberLoginRow(rememberPassword) { rememberPassword = it }
+                    PrimaryButton("进入管理后台", Modifier.fillMaxWidth()) {
+                        cacheLogin(adminAccount, adminPassword)
+                        vm.loginAdmin(adminAccount, adminPassword)
+                    }
+                } else if (mode == "login_pwd") {
+                    AppTextField(loginAccount, { loginAccount = it }, "手机号或邮箱")
+                    AppTextField(loginPassword, { loginPassword = it }, "密码", password = true)
+                    RememberLoginRow(rememberPassword) { rememberPassword = it }
+                    PrimaryButton("登录", Modifier.fillMaxWidth()) {
+                        cacheLogin(loginAccount, loginPassword)
+                        vm.login(loginAccount, loginPassword)
+                    }
                 } else if (mode == "login_otp") {
+                    AppTextField(otpAccount, { otpAccount = it }, "手机号或邮箱")
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         AppTextField(code, { code = it }, "验证码", modifier = Modifier.weight(1f))
-                        SecondaryButton("获取验证码", Modifier.width(120.dp)) { vm.sendCode(account, "login") }
+                        SecondaryButton("获取验证码", Modifier.width(120.dp)) { vm.sendCode(otpAccount, "login") }
                     }
-                    PrimaryButton("登录", Modifier.fillMaxWidth()) { vm.loginWithCode(account, code) }
+                    PrimaryButton("登录", Modifier.fillMaxWidth()) { vm.loginWithCode(otpAccount, code) }
                 } else if (mode == "register") {
-                    AppTextField(password, { password = it }, "设置密码", password = true)
+                    AppTextField(registerAccount, { registerAccount = it }, "手机号或邮箱")
+                    AppTextField(registerPassword, { registerPassword = it }, "设置密码", password = true)
                     AppTextField(nickname, { nickname = it }, "昵称")
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         AppTextField(code, { code = it }, "验证码", modifier = Modifier.weight(1f))
-                        SecondaryButton("获取验证码", Modifier.width(120.dp)) { vm.sendCode(account, "register") }
+                        SecondaryButton("获取验证码", Modifier.width(120.dp)) { vm.sendCode(registerAccount, "register") }
                     }
-                    PrimaryButton("立即注册", Modifier.fillMaxWidth()) { vm.register(account, password, code, nickname) }
+                    PrimaryButton("立即注册", Modifier.fillMaxWidth()) { vm.register(registerAccount, registerPassword, code, nickname) }
                 } else if (mode == "forgot") {
-                    AppTextField(password, { password = it }, "新密码", password = true)
+                    AppTextField(resetAccount, { resetAccount = it }, "手机号或邮箱")
+                    AppTextField(resetPassword, { resetPassword = it }, "新密码", password = true)
                     Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         AppTextField(code, { code = it }, "验证码", modifier = Modifier.weight(1f))
-                        SecondaryButton("获取验证码", Modifier.width(120.dp)) { vm.sendCode(account, "reset") }
+                        SecondaryButton("获取验证码", Modifier.width(120.dp)) { vm.sendCode(resetAccount, "reset") }
                     }
-                    PrimaryButton("重置密码", Modifier.fillMaxWidth()) { vm.resetPassword(account, code, password) }
+                    PrimaryButton("重置密码", Modifier.fillMaxWidth()) { vm.resetPassword(resetAccount, code, resetPassword) }
                 }
 
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                    TextButton(onClick = { mode = if (mode == "login_pwd") "login_otp" else "login_pwd" }) {
-                        Text(if (mode == "login_pwd") "验证码登录" else "密码登录")
+                if (entrance == "user") {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        TextButton(onClick = { mode = if (mode == "login_pwd") "login_otp" else "login_pwd" }) {
+                            Text(if (mode == "login_pwd") "验证码登录" else "密码登录")
+                        }
+                        TextButton(onClick = { mode = if (mode == "register") "login_pwd" else "register" }) {
+                            Text(if (mode == "register") "返回登录" else "注册账号")
+                        }
                     }
-                    TextButton(onClick = { mode = if (mode == "register") "login_pwd" else "register" }) {
-                        Text(if (mode == "register") "返回登录" else "注册账号")
+                    if (mode == "login_pwd") {
+                        TextButton(onClick = { mode = "forgot" }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                            Text("忘记密码？", color = AcMuted)
+                        }
+                    }
+                } else {
+                    Text("管理员入口仅用于内容审核、举报处理、用户管理和数据统计。", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoginFloatingDialog(vm: PlatformViewModel) {
+    val context = LocalContext.current
+    val prefs = remember { context.getSharedPreferences("login_cache", android.content.Context.MODE_PRIVATE) }
+    var entrance by remember { mutableStateOf("user") }
+    var mode by remember { mutableStateOf("pwd") }
+    var loginAccount by remember { mutableStateOf(prefs.getString("account", "") ?: "") }
+    var adminAccount by remember { mutableStateOf(prefs.getString("account", "") ?: "") }
+    var otpAccount by remember { mutableStateOf("") }
+    var registerAccount by remember { mutableStateOf("") }
+    var resetAccount by remember { mutableStateOf("") }
+    var loginPassword by remember { mutableStateOf(prefs.getString("password", "") ?: "") }
+    var adminPassword by remember { mutableStateOf(prefs.getString("password", "") ?: "") }
+    var registerPassword by remember { mutableStateOf("") }
+    var resetPassword by remember { mutableStateOf("") }
+    var code by remember { mutableStateOf("") }
+    var nickname by remember { mutableStateOf("") }
+    var rememberPassword by remember { mutableStateOf(prefs.getBoolean("remember", false)) }
+
+    fun cacheLogin(account: String, password: String) {
+        prefs.edit().apply {
+            putBoolean("remember", rememberPassword)
+            if (rememberPassword) {
+                putString("account", account)
+                putString("password", password)
+            } else {
+                remove("account")
+                remove("password")
+            }
+        }.apply()
+    }
+
+    Dialog(
+        onDismissRequest = {},
+        properties = DialogProperties(usePlatformDefaultWidth = false, dismissOnBackPress = false, dismissOnClickOutside = false)
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth(0.92f)
+                .heightIn(max = 620.dp),
+            shape = RoundedCornerShape(26.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 10.dp),
+        ) {
+            LazyColumn(
+                contentPadding = PaddingValues(horizontal = 24.dp, vertical = 26.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item {
+                    Text(
+                        when (mode) {
+                            "register" -> "注册新账号"
+                            "forgot" -> "重置密码"
+                            else -> "欢迎来到 αcFun"
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        color = AcText,
+                        fontWeight = FontWeight.Black,
+                        style = MaterialTheme.typography.titleLarge,
+                        textAlign = TextAlign.Center,
+                    )
+                }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                        SmallTab("普通用户", entrance == "user", Modifier.weight(1f)) {
+                            entrance = "user"
+                            if (mode == "admin") mode = "pwd"
+                        }
+                        SmallTab("管理员入口", entrance == "admin", Modifier.weight(1f)) {
+                            entrance = "admin"
+                            mode = "admin"
+                        }
                     }
                 }
-                if (mode == "login_pwd") {
-                    TextButton(onClick = { mode = "forgot" }, modifier = Modifier.align(Alignment.CenterHorizontally)) {
-                        Text("忘记密码？", color = AcMuted)
+                if (mode != "register" && mode != "forgot" && entrance == "user") {
+                    item {
+                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+                            LoginModeTab("密码登录", mode == "pwd", Modifier.weight(1f)) { mode = "pwd" }
+                            LoginModeTab("验证码登录", mode == "otp", Modifier.weight(1f)) { mode = "otp" }
+                        }
+                    }
+                }
+
+                when (mode) {
+                    "otp" -> {
+                        item { AppTextField(otpAccount, { otpAccount = it }, "手机号/邮箱") }
+                        item {
+                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                                AppTextField(code, { code = it }, "验证码", modifier = Modifier.weight(1f))
+                                SecondaryButton("获取", Modifier.width(82.dp)) { vm.sendCode(otpAccount, "login") }
+                            }
+                        }
+                        item { PrimaryButton("登录", Modifier.fillMaxWidth()) { vm.loginWithCode(otpAccount, code) } }
+                    }
+                    "register" -> {
+                        item { AppTextField(registerAccount, { registerAccount = it }, "手机号/邮箱") }
+                        item { AppTextField(nickname, { nickname = it }, "昵称") }
+                        item { AppTextField(code, { code = it }, "验证码") }
+                        item { AppTextField(registerPassword, { registerPassword = it }, "密码", password = true) }
+                        item { SecondaryButton("获取验证码", Modifier.fillMaxWidth()) { vm.sendCode(registerAccount, "register") } }
+                        item { PrimaryButton("注册并登录", Modifier.fillMaxWidth()) { vm.register(registerAccount, registerPassword, code, nickname) } }
+                    }
+                    "forgot" -> {
+                        item { AppTextField(resetAccount, { resetAccount = it }, "手机号/邮箱") }
+                        item { AppTextField(code, { code = it }, "验证码") }
+                        item { AppTextField(resetPassword, { resetPassword = it }, "新密码", password = true) }
+                        item { SecondaryButton("获取验证码", Modifier.fillMaxWidth()) { vm.sendCode(resetAccount, "reset") } }
+                        item { PrimaryButton("重置密码", Modifier.fillMaxWidth()) { vm.resetPassword(resetAccount, code, resetPassword) } }
+                    }
+                    "admin" -> {
+                        item { AppTextField(adminAccount, { adminAccount = it }, "手机号/邮箱") }
+                        item { AppTextField(adminPassword, { adminPassword = it }, "管理员密码", password = true) }
+                        item { RememberLoginRow(rememberPassword) { rememberPassword = it } }
+                        item {
+                            PrimaryButton("进入管理后台", Modifier.fillMaxWidth()) {
+                                cacheLogin(adminAccount, adminPassword)
+                                vm.loginAdmin(adminAccount, adminPassword)
+                            }
+                        }
+                    }
+                    else -> {
+                        item { AppTextField(loginAccount, { loginAccount = it }, "手机号/邮箱") }
+                        item { AppTextField(loginPassword, { loginPassword = it }, "密码", password = true) }
+                        item { RememberLoginRow(rememberPassword) { rememberPassword = it } }
+                        item {
+                            PrimaryButton("登录", Modifier.fillMaxWidth()) {
+                                cacheLogin(loginAccount, loginPassword)
+                                vm.login(loginAccount, loginPassword)
+                            }
+                        }
+                    }
+                }
+
+                if (mode != "register") {
+                    item { SecondaryButton("注册账号", Modifier.fillMaxWidth()) { entrance = "user"; mode = "register" } }
+                }
+                item {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+                        TextButton(onClick = { entrance = "user"; mode = if (mode == "forgot") "pwd" else "forgot" }) {
+                            Text(if (mode == "forgot") "返回登录" else "忘记密码？", color = AcPrimary)
+                        }
                     }
                 }
             }
@@ -265,50 +626,80 @@ private fun LoginScreen(vm: PlatformViewModel) {
 }
 
 @Composable
-private fun HomeScreen(state: PlatformUiState, vm: PlatformViewModel) {
-    var keyword by remember { mutableStateOf("") }
-    var selectedCat by remember { mutableStateOf("全部") }
-    var detailId by remember { mutableStateOf<Int?>(null) }
-    
-    val categories = listOf("全部", "热门", "资讯", "推荐")
+private fun LoginModeTab(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Column(
+        modifier = modifier.clickable(onClick = onClick).padding(vertical = 4.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(text, color = if (selected) AcPrimary else AcMuted, fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal)
+        Spacer(Modifier.height(5.dp))
+        Box(
+            Modifier
+                .width(56.dp)
+                .height(2.dp)
+                .background(if (selected) AcPrimary else Color.Transparent)
+        )
+    }
+}
 
+@Composable
+private fun RememberLoginRow(checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().clickable { onCheckedChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
+        Text("保存用户名和密码", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun HomeScreen(state: PlatformUiState, vm: PlatformViewModel, initialCategory: String) {
+    val session by vm.session.collectAsState()
+    var keyword by remember { mutableStateOf("") }
+    var selectedCat by remember { mutableStateOf(initialCategory) }
+    var detailId by remember { mutableStateOf<Int?>(null) }
+    var reportTarget by remember { mutableStateOf<Pair<String, Int>?>(null) }
+
+    LaunchedEffect(initialCategory) {
+        selectedCat = initialCategory
+        vm.refreshHome(
+            keyword = keyword,
+            category = if (initialCategory == "全部" || initialCategory == "热门") null else initialCategory,
+            hot = initialCategory == "热门"
+        )
+        vm.loadTrending()
+    }
+
+    BackHandler(enabled = reportTarget != null) { reportTarget = null }
+    BackHandler(enabled = detailId != null) { detailId = null }
+    reportTarget?.let { (targetType, targetId) ->
+        ReportDialog(
+            title = "举报图文内容",
+            onSubmit = { reason, description ->
+                vm.report(targetType, targetId, reason, description)
+                reportTarget = null
+            },
+            onCancel = { reportTarget = null }
+        )
+    }
+
+    RefreshBox(
+        refreshing = state.loading,
+        onRefresh = {
+            vm.refreshHome(keyword, if (selectedCat == "全部" || selectedCat == "热门") null else selectedCat, hot = selectedCat == "热门")
+            vm.loadTrending()
+        }
+    ) {
+    if (detailId != null) {
+        LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            item {
+                WorkDetail(state, vm, detailId!!) { detailId = null }
+            }
+        }
+    } else {
     LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
-            AppCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    AppTextField(
-                        value = keyword,
-                        onValueChange = { keyword = it },
-                        label = "搜索感兴趣的内容...",
-                        modifier = Modifier.weight(1f)
-                    )
-                    Button(
-                        onClick = { vm.refreshHome(keyword, if(selectedCat=="全部") null else selectedCat) },
-                        modifier = Modifier.height(56.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AcPrimary)
-                    ) {
-                        Text("搜索")
-                    }
-                }
-            }
-        }
-        item {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(categories) { cat ->
-                    SmallTab(cat, selectedCat == cat) {
-                        selectedCat = cat
-                        vm.refreshHome(keyword, if(cat=="全部") null else if(cat=="热门") null else cat, hot = cat == "热门")
-                    }
-                }
-            }
-        }
-        
-        if (state.trendingTopics.isNotEmpty()) {
+        if (initialCategory == "热门" && state.trendingTopics.isNotEmpty()) {
             item {
                 Text("正在流行", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(vertical = 4.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -325,13 +716,68 @@ private fun HomeScreen(state: PlatformUiState, vm: PlatformViewModel) {
             }
         }
 
-        detailId?.let { item { WorkDetail(state, vm, it) { detailId = null } } }
-        
         items(state.works) { work ->
             WorkCard(work, onOpen = {
                 detailId = work.id
                 vm.openWork(work.id)
-            }, vm = vm)
+            }, onComment = {
+                detailId = work.id
+                vm.openWork(work.id)
+            }, onReport = {
+                reportTarget = "work" to work.id
+            }, vm = vm, currentUserId = session.userId ?: state.profile?.id, followedAuthorIds = state.followedAuthorIds)
+        }
+    }
+    }
+    }
+}
+
+@Composable
+private fun FavoritesScreen(state: PlatformUiState, vm: PlatformViewModel) {
+    var detailId by remember { mutableStateOf<Int?>(null) }
+    var reportTarget by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    LaunchedEffect(Unit) { vm.loadMine() }
+    BackHandler(enabled = reportTarget != null) { reportTarget = null }
+    BackHandler(enabled = detailId != null) { detailId = null }
+    reportTarget?.let { (targetType, targetId) ->
+        ReportDialog(
+            title = "举报图文内容",
+            onSubmit = { reason, description ->
+                vm.report(targetType, targetId, reason, description)
+                reportTarget = null
+            },
+            onCancel = { reportTarget = null }
+        )
+    }
+    RefreshBox(refreshing = state.loading, onRefresh = { vm.loadMine() }) {
+        if (detailId != null) {
+            LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item { WorkDetail(state, vm, detailId!!) { detailId = null } }
+            }
+        } else {
+            LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                item { SectionTitle("我的收藏") }
+                if (state.favorites.isEmpty()) {
+                    item { EmptyAdminCard("暂无收藏") }
+                }
+                items(state.favorites) { work ->
+                    WorkCard(
+                        work = work,
+                        onOpen = {
+                            detailId = work.id
+                            vm.openWork(work.id)
+                        },
+                        onComment = {
+                            detailId = work.id
+                            vm.openWork(work.id)
+                        },
+                        onReport = { reportTarget = "work" to work.id },
+                        vm = vm,
+                        currentUserId = state.profile?.id,
+                        followedAuthorIds = state.followedAuthorIds
+                    )
+                }
+            }
         }
     }
 }
@@ -340,32 +786,46 @@ private fun HomeScreen(state: PlatformUiState, vm: PlatformViewModel) {
 private fun WorkDetail(state: PlatformUiState, vm: PlatformViewModel, id: Int, onClose: () -> Unit) {
     val work = state.currentWork ?: return
     var comment by remember { mutableStateOf("") }
+    var reportTarget by remember { mutableStateOf<Pair<String, Int>?>(null) }
+    val showSummary = !work.summary.isNullOrBlank() && work.summary.trim() != work.title.trim()
+    BackHandler(enabled = reportTarget != null) { reportTarget = null }
+    reportTarget?.let { (targetType, targetId) ->
+        ReportDialog(
+            title = if (targetType == "work") "举报图文内容" else "举报评论",
+            onSubmit = { reason, description ->
+                vm.report(targetType, targetId, reason, description)
+                reportTarget = null
+            },
+            onCancel = { reportTarget = null }
+        )
+    }
     AppCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(work.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-            IconButton(onClick = onClose) { Text("✕", fontWeight = FontWeight.Bold) }
-        }
-        Text("#${work.category} · ${work.author?.nickname ?: "用户"}", color = AcMuted)
-        WorkImage(work.coverImage)
-        Text(work.summary ?: "", color = AcText)
-        
-        if (state.chapters.isNotEmpty()) {
-            Text("章节内容", fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 8.dp))
-            state.chapters.forEach { chapter ->
-                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AcBg)) {
-                    Column(Modifier.padding(12.dp)) {
-                        Text(chapter.title, fontWeight = FontWeight.Bold)
-                        Text(chapter.content, color = AcText, style = MaterialTheme.typography.bodySmall)
-                    }
+            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Avatar(work.author?.nickname ?: "用户")
+                Column {
+                    Text(work.author?.nickname ?: "用户", fontWeight = FontWeight.Bold)
+                    Text(work.createdAt.replace("T", " "), color = AcMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                 }
             }
+            IconButton(onClick = onClose) { Text("✕", fontWeight = FontWeight.Bold) }
         }
-
-        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            SecondaryButton("👍 ${work.likeCount}", Modifier.weight(1f)) { vm.like(id) }
-            SecondaryButton("⭐ ${work.favoriteCount}", Modifier.weight(1f)) { vm.favorite(id) }
-        }
+        Text(work.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Text("#${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted)
+        if (showSummary) Text(work.summary ?: "", color = AcText)
+        WorkImage(work.coverImage)
         
+        HorizontalDivider(color = AcBorder)
+        PostActionRow(
+            commentCount = work.commentCount,
+            likeCount = work.likeCount,
+            favoriteCount = work.favoriteCount,
+            onComment = { },
+            onLike = { vm.like(id) },
+            onFavorite = { vm.favorite(id) },
+            onReport = { reportTarget = "work" to id },
+        )
+
         HorizontalDivider(color = AcBorder)
         Text("评论 (${state.comments.size})", fontWeight = FontWeight.Bold)
         AppTextField(comment, { comment = it }, "发表你的看法...")
@@ -377,38 +837,146 @@ private fun WorkDetail(state: PlatformUiState, vm: PlatformViewModel, id: Int, o
         }
         
         state.comments.forEach { c ->
-            CommentItem(c, vm, id)
+            CommentItem(c, vm, id) { targetType, targetId ->
+                reportTarget = targetType to targetId
+            }
         }
     }
 }
 
 @Composable
-private fun CommentItem(c: CommentDto, vm: PlatformViewModel, workId: Int) {
+private fun CommentItem(c: CommentDto, vm: PlatformViewModel, workId: Int, onReport: (String, Int) -> Unit) {
     var replying by remember { mutableStateOf(false) }
     var replyText by remember { mutableStateOf("") }
     
-    Column(Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(c.user?.nickname ?: "用户", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-            TextButton(onClick = { replying = !replying }) { Text("回复", style = MaterialTheme.typography.bodySmall) }
+    Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+            Text(
+                "${c.user?.nickname ?: "用户"}  ",
+                fontWeight = FontWeight.Bold,
+                style = MaterialTheme.typography.bodyMedium,
+                color = AcText,
+            )
+            Text(
+                c.content,
+                color = AcText,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
         }
-        Text(c.content, color = AcText)
+        Row(horizontalArrangement = Arrangement.spacedBy(18.dp)) {
+            Text(
+                "回复",
+                color = AcPrimary,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.clickable { replying = !replying }
+            )
+            Text(
+                "举报",
+                color = AcDanger,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.clickable { onReport("comment", c.id) }
+            )
+        }
         
-        c.replies.forEach { r ->
-            Row(Modifier.padding(start = 24.dp, top = 4.dp)) {
-                Text("${r.user?.nickname}: ", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-                Text(r.content, style = MaterialTheme.typography.bodySmall)
+        if (c.replies.isNotEmpty()) {
+            Row(Modifier.padding(start = 26.dp, top = 8.dp)) {
+                Box(
+                    Modifier
+                        .width(2.dp)
+                        .heightIn(min = (34 * c.replies.size).dp)
+                        .background(AcBorder)
+                )
+                Column(
+                    Modifier.padding(start = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    c.replies.forEach { r ->
+                        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                            Text(
+                                "${r.user?.nickname ?: "用户"}: ",
+                                fontWeight = FontWeight.Bold,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AcText,
+                            )
+                            Text(
+                                r.content,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AcText,
+                                modifier = Modifier.weight(1f),
+                            )
+                            Text(
+                                "举报",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = AcDanger,
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .clickable { onReport("comment", r.id) }
+                            )
+                        }
+                    }
+                }
             }
         }
         
         if (replying) {
-            Row(Modifier.padding(start = 24.dp, top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.padding(start = 24.dp, top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 AppTextField(replyText, { replyText = it }, "回复 @${c.user?.nickname}", modifier = Modifier.weight(1f))
                 TextButton(onClick = { 
-                    vm.comment(workId, replyText, c.id)
-                    replyText = ""
-                    replying = false
+                    if (replyText.isNotBlank()) {
+                        vm.comment(workId, replyText, c.id)
+                        replyText = ""
+                        replying = false
+                    }
                 }) { Text("发送") }
+            }
+        }
+        HorizontalDivider(color = AcBorder, modifier = Modifier.padding(top = 8.dp))
+    }
+}
+
+@Composable
+private fun ReportPanel(title: String, onSubmit: (String, String?) -> Unit, onCancel: () -> Unit) {
+    var reason by remember { mutableStateOf("垃圾广告") }
+    var description by remember { mutableStateOf("") }
+    val reasons = listOf("垃圾广告", "违法违规", "涉黄涉暴", "人身攻击", "其他")
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AcBg)) {
+        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, fontWeight = FontWeight.Bold)
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(reasons) { item ->
+                    SmallTab(item, reason == item) { reason = item }
+                }
+            }
+            AppTextField(description, { description = it }, "详细描述（选填）", minLines = 3)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                PrimaryButton("提交举报", Modifier.weight(1f)) { onSubmit(reason, description.ifBlank { null }) }
+                SecondaryButton("取消", Modifier.weight(1f), onCancel)
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReportDialog(title: String, onSubmit: (String, String?) -> Unit, onCancel: () -> Unit) {
+    Dialog(
+        onDismissRequest = onCancel,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black.copy(alpha = 0.35f))
+                .clickable { onCancel() }
+                .padding(horizontal = 24.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {}
+            ) {
+                ReportPanel(title, onSubmit, onCancel)
             }
         }
     }
@@ -444,6 +1012,8 @@ private fun PublishScreen(vm: PlatformViewModel) {
                 Spacer(Modifier.height(8.dp))
                 PrimaryButton("立即发布", Modifier.fillMaxWidth()) {
                     vm.publishWithImage(context, imageUri, null, content, category, content)
+                    content = ""
+                    imageUri = null
                 }
             }
         }
@@ -452,46 +1022,116 @@ private fun PublishScreen(vm: PlatformViewModel) {
 
 @Composable
 private fun MineScreen(state: PlatformUiState, vm: PlatformViewModel) {
-    var section by remember { mutableStateOf("info") }
+    var section by remember { mutableStateOf("menu") }
+    val menuItems = listOf(
+        "info" to "个人信息",
+        "works" to "个人动态",
+        "chapters" to "章节管理",
+        "follows" to "我的关注",
+        "comments" to "评论管理",
+        "logout" to "退出登录",
+        "delete" to "账户注销",
+    )
+    BackHandler(enabled = section != "menu") {
+        section = "menu"
+    }
+    RefreshBox(refreshing = state.loading, onRefresh = { vm.loadMine() }) {
     LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("个人中心", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                TextButton(onClick = { vm.logout() }) { Text("退出", color = AcDanger) }
-            }
-        }
-        item {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                listOf("info" to "资料", "works" to "动态", "chapters" to "章节").forEach { (key, label) ->
-                    SmallTab(label, section == key, Modifier.weight(1f)) { section = key }
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                listOf("comments" to "评论", "follows" to "关注", "favorites" to "收藏").forEach { (key, label) ->
-                    SmallTab(label, section == key, Modifier.weight(1f)) { section = key }
+        if (section != "menu") {
+            item {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { section = "menu" }) { Text("返回") }
+                    TextButton(onClick = { vm.logout() }) { Text("退出", color = AcDanger) }
                 }
             }
         }
         when (section) {
+            "menu" -> item {
+                ProfileHeader(state.profile)
+                Spacer(Modifier.height(10.dp))
+                AppCard {
+                    menuItems.forEach { (key, label) ->
+                        MineMenuItem(label, selected = false, danger = key == "logout" || key == "delete") {
+                            if (key == "logout") {
+                                vm.logout()
+                            } else {
+                                section = key
+                            }
+                        }
+                    }
+                }
+            }
             "info" -> item { ProfileEditor(state.profile, vm) }
             "works" -> {
-                item { SectionTitle("我的作品") }
+                item { SectionTitle("个人动态") }
+                if (state.myWorks.isEmpty()) item { EmptyAdminCard("暂无发布内容") }
                 items(state.myWorks) { MyWorkCard(it, vm) }
             }
             "chapters" -> item { ChapterManager(state, vm) }
-            "comments" -> {
-                item { SectionTitle("收到的评论") }
-                items(state.myComments) { MyCommentCard(it, vm) }
-            }
+            "comments" -> item { CommentManager(state, vm) }
             "follows" -> {
                 item { SectionTitle("我的关注") }
+                if (state.follows.isEmpty()) item { EmptyAdminCard("暂无关注用户") }
                 items(state.follows) { FollowCard(it, vm) }
             }
-            "favorites" -> {
-                item { SectionTitle("收藏夹") }
-                items(state.favorites) { WorkCard(it, onOpen = {}) }
-            }
+            "delete" -> item { DeleteAccountPanel(vm) }
+        }
+    }
+    }
+}
+
+@Composable
+private fun ProfileHeader(user: UserDto?) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Box(
+            Modifier
+                .size(86.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFFF8A3D)),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                (user?.nickname ?: "user").take(1).uppercase(),
+                color = Color.White,
+                fontWeight = FontWeight.Black,
+                style = MaterialTheme.typography.headlineMedium
+            )
+        }
+        Text(user?.nickname ?: "user", color = AcText, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+        Text("ID: U${user?.id ?: 0}", color = AcMuted, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun MineMenuItem(label: String, selected: Boolean, danger: Boolean = false, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(54.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) Color(0xFFE8F5FD) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            label,
+            modifier = Modifier.weight(1f),
+            color = when {
+                danger -> AcDanger
+                selected -> AcPrimary
+                else -> AcText
+            },
+            fontWeight = FontWeight.Bold
+        )
+        if (!danger) {
+            Text(">", color = Color(0xFFB8C4CC), fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -502,29 +1142,97 @@ private fun ProfileEditor(user: UserDto?, vm: PlatformViewModel) {
     var contact by remember(user?.id) { mutableStateOf(user?.contact ?: user?.account ?: "") }
     var bio by remember(user?.id) { mutableStateOf(user?.bio ?: "") }
     AppCard {
-        Text("创作等级：${user?.creatorLevel ?: "Lv1"} / 热度 ${user?.heatScore ?: 0.0}", color = AcPrimary, fontWeight = FontWeight.Bold)
-        AppTextField(nickname, { nickname = it }, "昵称")
+        SectionTitle("个人信息")
+        HorizontalDivider(color = AcBorder)
+        ReadOnlyInfoBox("用户ID", user?.id?.toString() ?: "")
         AppTextField(contact, { contact = it }, "联系方式")
+        AppTextField(nickname, { nickname = it }, "昵称")
         AppTextField(bio, { bio = it }, "个人简介", minLines = 3)
-        PrimaryButton("保存修改", Modifier.fillMaxWidth()) { vm.saveProfile(nickname, contact, bio) }
+        ReadOnlyInfoBox("创作等级", "${user?.creatorLevel ?: "Lv1"} / 热度 ${user?.heatScore ?: 0.0}")
+        ReadOnlyInfoBox("注册时间", user?.createdAt?.replace("T", " ") ?: "")
+        PrimaryButton("保存修改", Modifier.width(120.dp)) { vm.saveProfile(nickname, contact, bio) }
+    }
+}
+
+@Composable
+private fun ReadOnlyInfoBox(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .height(46.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .border(1.dp, Color(0xFFCFD9DE), RoundedCornerShape(8.dp))
+                .background(Color.White)
+                .padding(horizontal = 12.dp),
+            contentAlignment = Alignment.CenterStart
+        ) {
+            Text(value.ifBlank { "未填写" }, color = AcMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+    }
+}
+
+@Composable
+private fun DeleteAccountPanel(vm: PlatformViewModel) {
+    var confirm by remember { mutableStateOf(false) }
+    AppCard {
+        SectionTitle("账户注销")
+        Text("注销后当前账号资料将被删除，无法继续使用该账号登录。", color = AcMuted)
+        if (confirm) {
+            Text("请再次确认是否注销账号。", color = AcDanger, fontWeight = FontWeight.Bold)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                DangerButton("确认注销", Modifier.weight(1f)) { vm.deleteAccount() }
+                SecondaryButton("取消", Modifier.weight(1f)) { confirm = false }
+            }
+        } else {
+            DangerButton("注销账号", Modifier.fillMaxWidth()) { confirm = true }
+        }
     }
 }
 
 @Composable
 private fun MyWorkCard(work: WorkDto, vm: PlatformViewModel) {
+    val context = LocalContext.current
     var editing by remember { mutableStateOf(false) }
     var title by remember(work.id, editing) { mutableStateOf(work.title) }
     var summary by remember(work.id, editing) { mutableStateOf(work.summary ?: "") }
     var category by remember(work.id, editing) { mutableStateOf(work.category) }
+    var imageUri by remember(work.id, editing) { mutableStateOf<Uri?>(null) }
+    var removeImage by remember(work.id, editing) { mutableStateOf(false) }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            imageUri = uri
+            removeImage = false
+        }
+    }
     AppCard {
         Text("#${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted)
         if (editing) {
             AppTextField(title, { title = it }, "标题")
             AppTextField(summary, { summary = it }, "正文/摘要", minLines = 4)
             AppTextField(category, { category = it }, "分类")
+            WorkImage(
+                when {
+                    imageUri != null -> imageUri.toString()
+                    removeImage -> null
+                    else -> work.coverImage
+                }
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                SecondaryButton(if (imageUri == null && work.coverImage.isNullOrBlank()) "添加图片" else "更换图片", Modifier.weight(1f)) {
+                    imagePicker.launch("image/*")
+                }
+                if (imageUri != null || !work.coverImage.isNullOrBlank()) {
+                    SecondaryButton("移除图片", Modifier.weight(1f)) {
+                        imageUri = null
+                        removeImage = true
+                    }
+                }
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 PrimaryButton("保存", Modifier.weight(1f)) {
-                    vm.updateWork(work.id, title, summary, category)
+                    vm.updateWorkWithImage(context, work.id, title, summary, category, imageUri, removeImage)
                     editing = false
                 }
                 SecondaryButton("取消", Modifier.weight(1f)) { editing = false }
@@ -544,6 +1252,12 @@ private fun MyWorkCard(work: WorkDto, vm: PlatformViewModel) {
 @Composable
 private fun ChapterManager(state: PlatformUiState, vm: PlatformViewModel) {
     var selectedWorkId by remember { mutableStateOf(state.myWorks.firstOrNull()?.id) }
+    LaunchedEffect(state.myWorks) {
+        if (selectedWorkId == null && state.myWorks.isNotEmpty()) {
+            selectedWorkId = state.myWorks.first().id
+            vm.loadWorkChapters(state.myWorks.first().id)
+        }
+    }
     AppCard {
         if (state.myWorks.isEmpty()) {
             Text("暂无稿件，发布内容后可管理章节", color = AcMuted)
@@ -636,6 +1350,94 @@ private fun MyCommentCard(comment: CommentDto, vm: PlatformViewModel) {
 }
 
 @Composable
+private fun CommentManager(state: PlatformUiState, vm: PlatformViewModel) {
+    var selectedWork by remember { mutableStateOf<WorkDto?>(null) }
+    AppCard {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            SectionTitle("评论管理")
+            selectedWork?.let {
+                TextButton(onClick = { selectedWork = null }) { Text("返回列表") }
+            }
+        }
+        HorizontalDivider(color = AcBorder)
+        if (selectedWork == null) {
+            Text("请选择一个帖子查看其下方评论", color = AcMuted)
+            if (state.myWorks.isEmpty()) {
+                Text("暂无帖子", color = AcMuted)
+                return@AppCard
+            }
+            CommentTableHeader()
+            state.myWorks.forEach { work ->
+                CommentWorkRow(work) {
+                    selectedWork = work
+                    vm.openWork(work.id)
+                }
+            }
+        } else {
+            val work = selectedWork!!
+            Text(work.title, fontWeight = FontWeight.Bold)
+            Text("#${work.category} · ${work.commentCount} 条评论", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+            if (state.currentWork?.id != work.id) {
+                Text("评论加载中...", color = AcMuted)
+            } else if (state.comments.isEmpty()) {
+                Text("该帖子暂无评论", color = AcMuted)
+            } else {
+                state.comments.forEach { comment ->
+                    CommentManageItem(comment, vm)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CommentTableHeader() {
+    Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text("ID", modifier = Modifier.width(44.dp), color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+        Text("标题", modifier = Modifier.weight(1.4f), color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+        Text("分类", modifier = Modifier.weight(0.9f), color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+        Text("评论", modifier = Modifier.width(48.dp), color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+        Text("操作", modifier = Modifier.width(78.dp), color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun CommentWorkRow(work: WorkDto, onOpen: () -> Unit) {
+    HorizontalDivider(color = AcBorder)
+    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(work.id.toString(), modifier = Modifier.width(44.dp), color = AcText)
+        Text(work.title, modifier = Modifier.weight(1.4f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(work.category, modifier = Modifier.weight(0.9f), color = AcText, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(work.commentCount.toString(), modifier = Modifier.width(48.dp), color = AcText)
+        Button(
+            onClick = onOpen,
+            modifier = Modifier.width(78.dp).height(34.dp),
+            shape = RoundedCornerShape(8.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = AcPrimary, contentColor = Color.White),
+            contentPadding = PaddingValues(horizontal = 4.dp)
+        ) {
+            Text("查看", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun CommentManageItem(comment: CommentDto, vm: PlatformViewModel) {
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AcBg)) {
+        Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(comment.user?.nickname ?: "用户", fontWeight = FontWeight.Bold)
+            Text(comment.content, color = AcText)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text(comment.createdAt.replace("T", " "), color = AcMuted, style = MaterialTheme.typography.bodySmall)
+                TextButton(onClick = { vm.deleteComment(comment.id, comment.workId) }) {
+                    Text("删除", color = AcDanger)
+                }
+            }
+        }
+    }
+}
+
+@Composable
 private fun FollowCard(follow: FollowDto, vm: PlatformViewModel) {
     val user = follow.followed
     AppCard {
@@ -652,45 +1454,167 @@ private fun FollowCard(follow: FollowDto, vm: PlatformViewModel) {
 
 @Composable
 private fun AdminScreen(state: PlatformUiState, vm: PlatformViewModel) {
+    var section by remember { mutableStateOf("review") }
+    val reviewCount = state.stats?.pendingWorks ?: state.pendingWorks.size
+    val reportCount = state.stats?.pendingReports ?: state.reports.size
+    BackHandler(enabled = section != "review") {
+        section = "review"
+    }
+    RefreshBox(refreshing = state.loading, onRefresh = { vm.loadAdmin() }) {
     LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         item {
-            Text("管理后台", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            state.stats?.let { Text("用户 ${it.totalUsers} · 作品 ${it.totalWorks} · 待审 ${it.pendingWorks} · 举报 ${it.pendingReports}", color = AcMuted) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("管理后台", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                TextButton(onClick = { vm.loadAdmin() }) { Text("刷新") }
+            }
         }
-        item { SectionTitle("待审核作品") }
-        items(state.pendingWorks) { AdminWorkCard(it, vm) }
-        item { SectionTitle("待处理举报") }
-        items(state.reports) { ReportCard(it, vm) }
-        item { SectionTitle("用户管理") }
-        items(state.users) { UserCard(it, vm) }
+        item {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                SmallTab("内容审核", section == "review", Modifier.weight(1f), badgeCount = reviewCount) { section = "review" }
+                SmallTab("举报管理", section == "reports", Modifier.weight(1f), badgeCount = reportCount) { section = "reports" }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                SmallTab("用户管理", section == "users", Modifier.weight(1f)) { section = "users" }
+                SmallTab("数据统计", section == "stats", Modifier.weight(1f)) { section = "stats" }
+            }
+        }
+        when (section) {
+            "review" -> {
+                item { SectionTitle("待审核图文 ($reviewCount)") }
+                if (state.pendingWorks.isEmpty()) item { EmptyAdminCard("暂无待审核内容") }
+                items(state.pendingWorks) { AdminWorkCard(it, state, vm) }
+            }
+            "reports" -> {
+                item { SectionTitle("举报处理列表 ($reportCount)") }
+                if (state.reports.isEmpty()) item { EmptyAdminCard("暂无待处理举报") }
+                items(state.reports) { ReportCard(it, state, vm) }
+            }
+            "users" -> {
+                item { SectionTitle("用户列表 (${state.users.size})") }
+                if (state.users.isEmpty()) item { EmptyAdminCard("暂无用户数据") }
+                items(state.users) { UserCard(it, vm) }
+            }
+            "stats" -> {
+                item { SectionTitle("数据统计面板") }
+                item { AdminStatsCard(state.stats) }
+            }
+        }
+    }
     }
 }
 
 @Composable
-private fun WorkCard(work: WorkDto, onOpen: () -> Unit, vm: PlatformViewModel? = null) {
+private fun EmptyAdminCard(text: String) {
+    AppCard {
+        Text(text, color = AcMuted, modifier = Modifier.align(Alignment.CenterHorizontally))
+    }
+}
+
+@Composable
+private fun AdminStatsCard(stats: com.platform.android.data.StatsDto?) {
+    AppCard {
+        if (stats == null) {
+            Text("统计数据加载中", color = AcMuted)
+            return@AppCard
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            StatPill("今日新增用户", stats.newUsersToday.toString(), Modifier.weight(1f))
+            StatPill("今日发布内容", stats.worksToday.toString(), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            StatPill("待审核内容", stats.pendingWorks.toString(), Modifier.weight(1f))
+            StatPill("待处理举报", stats.pendingReports.toString(), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            StatPill("用户总数", stats.totalUsers.toString(), Modifier.weight(1f))
+            StatPill("作品总数", stats.totalWorks.toString(), Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun WorkCard(
+    work: WorkDto,
+    onOpen: () -> Unit,
+    onComment: (() -> Unit)? = null,
+    onReport: (() -> Unit)? = null,
+    vm: PlatformViewModel? = null,
+    currentUserId: Int? = null,
+    followedAuthorIds: Set<Int> = emptySet(),
+) {
+    val summary = work.summary?.trim().orEmpty()
+    val showTitle = work.title.trim().isNotBlank() && work.title.trim() != summary
+    val isOwnWork = currentUserId != null && work.authorId == currentUserId
+    val isFollowed = followedAuthorIds.contains(work.authorId)
     AppCard(Modifier.clickable(onClick = onOpen)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Avatar(work.author?.nickname ?: "用户")
             Column(Modifier.weight(1f)) {
                 Text(work.author?.nickname ?: "用户", fontWeight = FontWeight.Bold)
-            Text("#${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+                Text(work.createdAt.replace("T", " "), color = AcMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            if (vm != null && work.author != null) {
-                CompactPill("关注") { vm.followAuthor(work.author.id) }
+            if (vm != null && work.author != null && !isOwnWork) {
+                CompactPill(if (isFollowed) "已关注" else "关注", selected = isFollowed) {
+                    vm.followAuthor(work.author.id)
+                }
             }
         }
-        Text(work.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(work.summary ?: "暂无摘要", color = AcText, maxLines = 3, overflow = TextOverflow.Ellipsis)
+        Text("#${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+        if (showTitle) Text(work.title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text(summary.ifBlank { work.title.ifBlank { "暂无摘要" } }, color = AcText, maxLines = 3, overflow = TextOverflow.Ellipsis)
         WorkImage(work.coverImage)
-        Text("👍 ${work.likeCount}  ⭐ ${work.favoriteCount}  💬 ${work.commentCount}  👁 ${work.viewCount}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+        HorizontalDivider(color = AcBorder)
+        PostActionRow(
+            commentCount = work.commentCount,
+            likeCount = work.likeCount,
+            favoriteCount = work.favoriteCount,
+            onComment = { (onComment ?: onOpen).invoke() },
+            onLike = { vm?.like(work.id) },
+            onFavorite = { vm?.favorite(work.id) },
+            onReport = { onReport?.invoke() },
+        )
     }
 }
 
 @Composable
-private fun AdminWorkCard(work: WorkDto, vm: PlatformViewModel) {
+private fun AdminWorkCard(work: WorkDto, state: PlatformUiState, vm: PlatformViewModel) {
+    var expanded by remember { mutableStateOf(false) }
+    val summary = work.summary?.trim().orEmpty()
+    val detailWork = state.currentWork?.takeIf { it.id == work.id }
+    val detailChapters = if (detailWork != null) state.chapters else emptyList()
     AppCard {
-        Text(work.title, fontWeight = FontWeight.Bold)
-        Text(work.summary ?: "", color = AcText)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(work.title, fontWeight = FontWeight.Bold)
+                Text("${work.author?.nickname ?: "用户"} · #${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+            }
+            TextButton(onClick = {
+                expanded = !expanded
+                if (expanded) vm.openWork(work.id)
+            }) { Text(if (expanded) "收起" else "查看") }
+        }
+        if (expanded) {
+            val display = detailWork ?: work
+            val displaySummary = display.summary?.trim().orEmpty()
+            if (displaySummary.isNotBlank() && displaySummary != display.title.trim()) Text(displaySummary, color = AcText)
+            WorkImage(display.coverImage)
+            if (detailChapters.isNotEmpty()) {
+                Text("章节内容", fontWeight = FontWeight.Bold)
+                detailChapters.forEach { chapter ->
+                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AcBg)) {
+                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            Text("P${chapter.sortOrder} · ${chapter.title}", fontWeight = FontWeight.Bold)
+                            Text(chapter.content, color = AcText, maxLines = 5, overflow = TextOverflow.Ellipsis)
+                            WorkImage(chapter.imageUrl)
+                        }
+                    }
+                }
+            } else {
+                Text("正在加载图文详情...", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+            }
+            Text("浏览 ${display.viewCount} · 点赞 ${display.likeCount} · 收藏 ${display.favoriteCount} · 评论 ${display.commentCount}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PrimaryButton("通过", Modifier.weight(1f)) { vm.reviewWork(work.id, true) }
             DangerButton("拒绝", Modifier.weight(1f)) { vm.reviewWork(work.id, false) }
@@ -699,10 +1623,30 @@ private fun AdminWorkCard(work: WorkDto, vm: PlatformViewModel) {
 }
 
 @Composable
-private fun ReportCard(report: ReportDto, vm: PlatformViewModel) {
+private fun ReportCard(report: ReportDto, state: PlatformUiState, vm: PlatformViewModel) {
+    var expanded by remember { mutableStateOf(false) }
+    val targetWork = state.currentWork?.takeIf { report.targetType == "work" && it.id == report.targetId }
     AppCard {
-        Text("${report.targetType} #${report.targetId} · ${report.reason}", fontWeight = FontWeight.Bold)
-        Text(report.description ?: "无补充说明", color = AcMuted)
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("${report.targetType} #${report.targetId} · ${report.reason}", fontWeight = FontWeight.Bold)
+                Text(report.description ?: "无补充说明", color = AcMuted)
+            }
+            TextButton(onClick = {
+                expanded = !expanded
+                if (!expanded) return@TextButton
+                if (report.targetType == "work") vm.openWork(report.targetId)
+            }) { Text(if (expanded) "收起" else "查看") }
+        }
+        if (expanded) {
+            if (targetWork != null) {
+                Text(targetWork.title, fontWeight = FontWeight.Bold)
+                Text(targetWork.summary ?: "", color = AcText, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                WorkImage(targetWork.coverImage)
+            } else {
+                Text("评论举报会在处理后同步更新状态。", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             PrimaryButton("采纳", Modifier.weight(1f)) { vm.handleReport(report.id, true) }
             SecondaryButton("驳回", Modifier.weight(1f)) { vm.handleReport(report.id, false) }
@@ -712,16 +1656,53 @@ private fun ReportCard(report: ReportDto, vm: PlatformViewModel) {
 
 @Composable
 private fun UserCard(user: UserDto, vm: PlatformViewModel) {
+    var expanded by remember { mutableStateOf(false) }
     AppCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
+            Column(Modifier.weight(1f)) {
                 Text(user.nickname, fontWeight = FontWeight.Bold)
                 Text("${user.account} · ${user.role} · ${user.status}", color = AcMuted)
             }
-            SecondaryButton(if (user.status == "active") "禁用" else "启用") {
+            TextButton(onClick = { expanded = !expanded }) {
+                Text(if (expanded) "收起" else "详情")
+            }
+        }
+        if (expanded) {
+            InfoRow("用户ID", user.id.toString())
+            InfoRow("账号", user.account)
+            InfoRow("昵称", user.nickname)
+            InfoRow("角色", if (user.role == "admin") "管理员" else "普通用户")
+            InfoRow("状态", if (user.status == "active") "正常" else "已禁用")
+            InfoRow("联系方式", user.contact ?: "未填写")
+            InfoRow("个人简介", user.bio ?: "未填写")
+            InfoRow("创作等级", "${user.creatorLevel} / 热度 ${user.heatScore}")
+            InfoRow("注册时间", user.createdAt)
+            SecondaryButton(if (user.status == "active") "禁用用户" else "恢复用户", Modifier.fillMaxWidth()) {
                 vm.setUserStatus(user.id, if (user.status == "active") "disabled" else "active")
             }
         }
+    }
+}
+
+@Composable
+private fun InfoRow(label: String, value: String) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(label, color = AcMuted, style = MaterialTheme.typography.bodySmall)
+        Text(value, color = AcText, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f).padding(start = 12.dp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
+private fun StatPill(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(Color(0xFFE8F5FD))
+            .padding(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(value, color = AcPrimary, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleLarge)
+        Text(label, color = AcMuted, style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -763,6 +1744,22 @@ private fun AppTextField(
 }
 
 @Composable
+private fun SearchField(value: String, onValueChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    BasicTextField(
+        value = value,
+        onValueChange = onValueChange,
+        singleLine = true,
+        textStyle = TextStyle(color = AcText, fontWeight = FontWeight.Normal),
+        modifier = modifier
+            .height(40.dp)
+            .clip(RoundedCornerShape(999.dp))
+            .background(Color.White)
+            .border(1.dp, AcPrimary, RoundedCornerShape(999.dp))
+            .padding(horizontal = 16.dp, vertical = 9.dp)
+    )
+}
+
+@Composable
 private fun PrimaryButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Button(
         onClick = onClick,
@@ -783,12 +1780,61 @@ private fun SecondaryButton(text: String, modifier: Modifier = Modifier, onClick
 }
 
 @Composable
-private fun CompactPill(text: String, onClick: () -> Unit) {
+private fun ActionButton(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(40.dp),
+        shape = RoundedCornerShape(999.dp),
+        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8F5FD), contentColor = AcPrimary),
+        contentPadding = PaddingValues(horizontal = 4.dp)
+    ) {
+        Text(text, fontWeight = FontWeight.Bold, maxLines = 1, style = MaterialTheme.typography.labelSmall)
+    }
+}
+
+@Composable
+private fun PostActionRow(
+    commentCount: Int,
+    likeCount: Int,
+    favoriteCount: Int,
+    onComment: () -> Unit,
+    onLike: () -> Unit,
+    onFavorite: () -> Unit,
+    onReport: () -> Unit,
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        PostActionText("💬 $commentCount", Modifier.weight(1f), onComment)
+        PostActionText("👍 $likeCount", Modifier.weight(1f), onLike)
+        PostActionText("⭐ ${if (favoriteCount > 0) favoriteCount else "收藏"}", Modifier.weight(1f), onFavorite)
+        PostActionText("🚩 举报", Modifier.weight(1f), onReport)
+    }
+}
+
+@Composable
+private fun PostActionText(text: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    TextButton(
+        onClick = onClick,
+        modifier = modifier.height(38.dp),
+        contentPadding = PaddingValues(horizontal = 2.dp)
+    ) {
+        Text(text, color = AcText, maxLines = 1, style = MaterialTheme.typography.bodyMedium)
+    }
+}
+
+@Composable
+private fun CompactPill(text: String, selected: Boolean = false, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         modifier = Modifier.width(72.dp).height(40.dp),
         shape = RoundedCornerShape(999.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8F5FD), contentColor = AcPrimary),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = if (selected) AcPrimary else Color(0xFFE8F5FD),
+            contentColor = if (selected) Color.White else AcPrimary
+        ),
         contentPadding = PaddingValues(horizontal = 8.dp)
     ) {
         Text(text, fontWeight = FontWeight.Bold, maxLines = 1, style = MaterialTheme.typography.labelSmall)
@@ -796,7 +1842,7 @@ private fun CompactPill(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SmallTab(text: String, selected: Boolean, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun SmallTab(text: String, selected: Boolean, modifier: Modifier = Modifier, badgeCount: Int = 0, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         modifier = modifier.height(40.dp),
@@ -807,7 +1853,28 @@ private fun SmallTab(text: String, selected: Boolean, modifier: Modifier = Modif
         ),
         contentPadding = PaddingValues(horizontal = 8.dp)
     ) {
-        Text(text, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(text, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+            if (badgeCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .widthIn(min = 18.dp)
+                        .heightIn(min = 18.dp)
+                        .clip(CircleShape)
+                        .background(if (selected) Color.White else AcPrimary),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = if (badgeCount > 99) "99+" else badgeCount.toString(),
+                        color = if (selected) AcPrimary else Color.White,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 4.dp)
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -837,20 +1904,98 @@ private fun Avatar(seed: String) {
 }
 
 @Composable
+private fun HeaderAvatar(seed: String) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .clip(CircleShape)
+            .background(Color(0xFFFF7A32)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            seed.take(1).ifBlank { "用" }.uppercase(),
+            color = Color.White,
+            fontWeight = FontWeight.Black,
+            style = MaterialTheme.typography.titleMedium
+        )
+    }
+}
+
+@Composable
 private fun WorkImage(url: String?) {
     if (url.isNullOrBlank()) return
-    val fullUrl = if (url.startsWith("/uploads/")) {
-        "http://10.0.2.2:8000$url"
-    } else url
+    val context = LocalContext.current
+    val fullUrl = remember(url) { resolveImageUrl(url) }
+    var previewing by remember { mutableStateOf(false) }
     AsyncImage(
-        model = fullUrl,
+        model = ImageRequest.Builder(context)
+            .data(fullUrl)
+            .addHeader("User-Agent", "Mozilla/5.0")
+            .crossfade(true)
+            .build(),
         contentDescription = null,
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(max = 230.dp)
             .aspectRatio(16f / 9f)
             .clip(RoundedCornerShape(10.dp))
-            .background(AcBorder),
+            .background(AcBorder)
+            .clickable { previewing = true },
         contentScale = ContentScale.Crop,
     )
+    if (previewing) {
+        FullImageDialog(fullUrl) { previewing = false }
+    }
+}
+
+private fun resolveImageUrl(url: String): String {
+    val cleaned = url.trim()
+    val base = BuildConfig.API_BASE_URL.trimEnd('/')
+    return when {
+        cleaned.startsWith("http://127.0.0.1") || cleaned.startsWith("http://localhost") -> {
+            cleaned.replace(Regex("^http://(127\\.0\\.0\\.1|localhost)(:\\d+)?"), base)
+        }
+        cleaned.contains("images.unsplash.com") -> {
+            val separator = if (cleaned.contains("?")) "&" else "?"
+            if (cleaned.contains("fm=")) cleaned else "$cleaned${separator}fm=jpg"
+        }
+        cleaned.startsWith("http://") || cleaned.startsWith("https://") || cleaned.startsWith("content://") -> cleaned
+        cleaned.startsWith("/") -> base + cleaned
+        else -> "$base/$cleaned"
+    }
+}
+
+@Composable
+private fun FullImageDialog(url: String, onClose: () -> Unit) {
+    val context = LocalContext.current
+    Dialog(
+        onDismissRequest = onClose,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .clickable { onClose() }
+                .padding(12.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            AsyncImage(
+                model = ImageRequest.Builder(context)
+                    .data(url)
+                    .addHeader("User-Agent", "Mozilla/5.0")
+                    .crossfade(true)
+                    .build(),
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Fit,
+            )
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.align(Alignment.TopEnd)
+            ) {
+                Text("✕", color = Color.White, fontWeight = FontWeight.Black)
+            }
+        }
+    }
 }

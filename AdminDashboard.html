@@ -109,6 +109,8 @@
     .menu-item {
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      gap: 8px;
       padding: 12px 20px;
       margin-bottom: 5px;
       border-radius: 9999px;
@@ -127,6 +129,27 @@
     .menu-item.active {
       color: var(--primary-color);
       background-color: rgba(29, 161, 242, 0.1);
+    }
+
+    .menu-label {
+      flex: 1;
+    }
+
+    .menu-badge {
+      min-width: 18px;
+      height: 18px;
+      padding: 0 5px;
+      border-radius: 999px;
+      background: #ff3b30;
+      color: #fff;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 18px;
+      box-sizing: border-box;
+      box-shadow: 0 1px 3px rgba(255, 59, 48, 0.35);
     }
 
     /* 主内容 */
@@ -341,8 +364,14 @@
   <div class="layout-container">
     <aside class="sidebar">
       <ul class="menu-list">
-        <li class="menu-item active" onclick="showSection('review', this)">内容审核</li>
-        <li class="menu-item" onclick="showSection('reports', this)">举报管理</li>
+        <li class="menu-item active" onclick="showSection('review', this)">
+          <span class="menu-label">内容审核</span>
+          <span id="review-badge" class="menu-badge">0</span>
+        </li>
+        <li class="menu-item" onclick="showSection('reports', this)">
+          <span class="menu-label">举报管理</span>
+          <span id="reports-badge" class="menu-badge">0</span>
+        </li>
         <li class="menu-item" onclick="showSection('users', this)">用户管理</li>
         <li class="menu-item" onclick="showSection('stats', this)">数据统计</li>
         <li class="menu-item" onclick="logout()" style="color: var(--danger-color);">退出登录</li>
@@ -538,6 +567,19 @@
   
   /* 旧的 localStorage mock 版 loadReports / handleReport 已删除，统一使用下方的 API 版本。 */
 
+  function setMenuBadge(id, count) {
+    const badge = document.getElementById(id);
+    if (!badge) return;
+    const value = Math.max(0, Number(count) || 0);
+    if (value === 0) {
+      badge.style.display = 'none';
+      badge.textContent = '0';
+      return;
+    }
+    badge.style.display = 'inline-flex';
+    badge.textContent = value > 99 ? '99+' : String(value);
+  }
+
   function logout() {
     if (confirm('确定要退出登录吗？')) {
       localStorage.removeItem('user');
@@ -550,7 +592,9 @@
     const tbody = document.getElementById('review-list-body');
     try {
       const works = await apiFetch('/api/works/pending');
-      tbody.innerHTML = works.length ? works.map(w => `
+      const list = Array.isArray(works) ? works : (works.items || []);
+      setMenuBadge('review-badge', works.total ?? list.length);
+      tbody.innerHTML = list.length ? list.map(w => `
         <tr>
           <td>${w.id}</td>
           <td>${w.author?.nickname || w.author?.account || '-'}</td>
@@ -674,7 +718,10 @@
     const tbody = document.getElementById('report-list-body');
     try {
       const reports = await apiFetch('/api/reports');
-      tbody.innerHTML = reports.length ? reports.map(r => `
+      const list = Array.isArray(reports) ? reports : (reports.items || []);
+      const pendingCount = list.filter(r => r.status === 'pending').length;
+      setMenuBadge('reports-badge', pendingCount);
+      tbody.innerHTML = list.length ? list.map(r => `
         <tr>
           <td>${r.id}</td>
           <td>${r.reporter?.nickname || r.reporter?.account || '-'}</td>
@@ -786,6 +833,8 @@
   async function loadStats() {
     try {
       const s = await apiFetch('/api/admin/stats');
+      setMenuBadge('review-badge', s.pending_works);
+      setMenuBadge('reports-badge', s.pending_reports);
       document.getElementById('stats-grid').innerHTML = `
         <div class="stat-card"><div class="stat-label">今日新增用户</div><div class="stat-number">${s.new_users_today}</div></div>
         <div class="stat-card"><div class="stat-label">今日发布内容</div><div class="stat-number">${s.works_today}</div></div>

@@ -2,6 +2,7 @@ package com.platform.android.data
 
 import android.content.Context
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -25,12 +26,14 @@ class SessionStore(private val context: Context) {
     private val tokenKey = stringPreferencesKey("token")
     private val roleKey = stringPreferencesKey("role")
     private val nicknameKey = stringPreferencesKey("nickname")
+    private val userIdKey = intPreferencesKey("user_id")
 
     val session: Flow<Session> = context.dataStore.data.map {
         Session(
             token = it[tokenKey],
             role = it[roleKey],
             nickname = it[nicknameKey],
+            userId = it[userIdKey],
         )
     }
 
@@ -39,6 +42,7 @@ class SessionStore(private val context: Context) {
             it[tokenKey] = token.accessToken
             it[roleKey] = token.user.role
             it[nicknameKey] = token.user.nickname
+            it[userIdKey] = token.user.id
         }
     }
 
@@ -47,7 +51,12 @@ class SessionStore(private val context: Context) {
     }
 }
 
-data class Session(val token: String? = null, val role: String? = null, val nickname: String? = null) {
+data class Session(
+    val token: String? = null,
+    val role: String? = null,
+    val nickname: String? = null,
+    val userId: Int? = null,
+) {
     val isLoggedIn: Boolean get() = !token.isNullOrBlank()
     val isAdmin: Boolean get() = role == "admin"
 }

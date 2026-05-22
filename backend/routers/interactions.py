@@ -20,7 +20,7 @@ def list_comments(
     db: Session = Depends(get_db),
     pp: PageParams = Depends(page_params),
 ):
-    query = (
+    base_query = (
         db.query(Comment)
         .options(joinedload(Comment.user))
         .filter(
@@ -30,7 +30,49 @@ def list_comments(
         )
         .order_by(Comment.created_at.desc())
     )
-    return paginate(query, pp)
+    total = base_query.order_by(None).count()
+    if pp.enabled:
+        parents = base_query.offset((pp.page - 1) * pp.size).limit(pp.size).all()
+    else:
+        parents = base_query.all()
+
+    parent_ids = [comment.id for comment in parents]
+    replies_by_parent: dict[int, list[Comment]] = {comment_id: [] for comment_id in parent_ids}
+    if parent_ids:
+        replies = (
+            db.query(Comment)
+            .options(joinedload(Comment.user))
+            .filter(
+                Comment.work_id == work_id,
+                Comment.parent_id.in_(parent_ids),
+                Comment.status == "visible",
+            )
+            .order_by(Comment.created_at.asc())
+            .all()
+        )
+        for reply in replies:
+            if reply.parent_id in replies_by_parent:
+                replies_by_parent[reply.parent_id].append(reply)
+
+    items = [
+        {
+            **CommentOut.model_validate(comment).model_dump(mode="json"),
+            "replies": [
+                CommentOut.model_validate(reply).model_dump(mode="json")
+                for reply in replies_by_parent.get(comment.id, [])
+            ],
+        }
+        for comment in parents
+    ]
+    if not pp.enabled:
+        return items
+    return {
+        "items": items,
+        "total": total,
+        "page": pp.page,
+        "size": pp.size,
+        "pages": (total + pp.size - 1) // pp.size if pp.size else 0,
+    }
 
 
 @router.get("/comments/{comment_id}", response_model=CommentOut)
@@ -51,6 +93,19 @@ def create_comment(work_id: int, payload: CommentCreateIn, db: Session = Depends
     work = db.query(Work).filter(Work.id == work_id).first()
     if not work or work.status != "approved":
         raise HTTPException(status_code=404, detail="作品不存在")
+    if payload.parent_id is not None:
+        parent = (
+            db.query(Comment)
+            .filter(
+                Comment.id == payload.parent_id,
+                Comment.work_id == work_id,
+                Comment.parent_id.is_(None),
+                Comment.status == "visible",
+            )
+            .first()
+        )
+        if not parent:
+            raise HTTPException(status_code=400, detail="回复的评论不存在")
     comment = Comment(work_id=work_id, user_id=user.id, **payload.model_dump())
     db.add(comment)
     db.flush()

@@ -37,6 +37,7 @@ import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
+import retrofit2.HttpException
 
 data class PlatformUiState(
     val loading: Boolean = false,
@@ -50,6 +51,7 @@ data class PlatformUiState(
     val myWorks: List<WorkDto> = emptyList(),
     val myComments: List<CommentDto> = emptyList(),
     val follows: List<FollowDto> = emptyList(),
+    val followedAuthorIds: Set<Int> = emptySet(),
     val favorites: List<WorkDto> = emptyList(),
     val stats: StatsDto? = null,
     val pendingWorks: List<WorkDto> = emptyList(),
@@ -72,10 +74,20 @@ class PlatformViewModel(
 
     fun clearMessage() = _state.update { it.copy(message = null) }
 
-    fun login(account: String, password: String) = run("登录成功") {
+    fun login(account: String, password: String) = loginWithRole(account, password, expectedAdmin = false)
+
+    fun loginAdmin(account: String, password: String) = loginWithRole(account, password, expectedAdmin = true)
+
+    private fun loginWithRole(account: String, password: String, expectedAdmin: Boolean) = run("登录成功") {
         val token = api.loginPassword(LoginPasswordRequest(account, password))
+        if (expectedAdmin && token.user.role != "admin") {
+            throw IllegalStateException("请使用管理员账号登录")
+        }
+        if (!expectedAdmin && token.user.role == "admin") {
+            throw IllegalStateException("管理员请从管理员入口登录")
+        }
         sessionStore.save(token)
-        refreshHomeInternal()
+        if (token.user.role == "admin") loadAdminInternal() else refreshHomeInternal()
     }
 
     fun loginWithCode(account: String, code: String) = run("登录成功") {
@@ -95,7 +107,8 @@ class PlatformViewModel(
     }
 
     fun sendCode(account: String, purpose: String = "register") = run(null) {
-        val res = api.sendCode(SendCodeRequest(account, purpose))
+        validateAccount(account)
+        val res = api.sendCode(SendCodeRequest(account.trim(), purpose))
         _state.update { it.copy(message = "验证码：${res["code"] ?: "已发送"}") }
     }
 
@@ -144,12 +157,23 @@ class PlatformViewModel(
 
     fun followAuthor(id: Int) = run(null) {
         val res = api.follow(id)
-        _state.update { it.copy(message = if (res.followed) "已关注" else "已取消关注") }
-        loadMineInternal()
+        _state.update {
+            val nextFollowed = if (res.followed) {
+                it.followedAuthorIds + id
+            } else {
+                it.followedAuthorIds - id
+            }
+            it.copy(
+                followedAuthorIds = nextFollowed,
+                follows = if (res.followed) it.follows else it.follows.filterNot { follow -> follow.followedId == id },
+            )
+        }
     }
 
     fun comment(workId: Int, content: String, parentId: Int? = null) = run("评论已发布") {
-        api.comment(workId, CommentCreateRequest(content, parentId))
+        val text = content.trim()
+        if (text.isBlank()) return@run
+        api.comment(workId, CommentCreateRequest(text, parentId))
         openWorkInternal(workId)
     }
 
@@ -166,8 +190,17 @@ class PlatformViewModel(
     private suspend fun openWorkInternal(id: Int) {
         val work = api.work(id)
         val chapters = api.chapters(id)
-        val comments = api.allComments(id)
-        _state.update { it.copy(currentWork = work, chapters = chapters, comments = comments) }
+        val comments = api.comments(id, size = 100).items
+        _state.update {
+            it.copy(
+                currentWork = work,
+                chapters = chapters,
+                comments = comments,
+                works = it.works.map { item -> if (item.id == work.id) work else item },
+                myWorks = it.myWorks.map { item -> if (item.id == work.id) work else item },
+                favorites = it.favorites.map { item -> if (item.id == work.id) work else item },
+            )
+        }
     }
 
     fun publish(title: String, summary: String, category: String, content: String) = run("作品已提交审核") {
@@ -186,7 +219,7 @@ class PlatformViewModel(
         run("作品已提交审核") {
             val cover = imageUri?.let { uploadImage(context, it) }
             val finalTitle = if (title.isNullOrBlank()) {
-                if (content.length > 18) "${content.take(18)}..." else content
+                category.removePrefix("#").ifBlank { "图文动态" }
             } else title
             api.createWork(
                 WorkCreateRequest(
@@ -202,6 +235,33 @@ class PlatformViewModel(
 
     fun updateWork(id: Int, title: String, summary: String, category: String) = run("作品已更新，等待审核") {
         api.updateWork(id, WorkUpdateRequest(title = title, summary = summary, category = category))
+        loadMineInternal()
+        refreshHomeInternal()
+    }
+
+    fun updateWorkWithImage(
+        context: Context,
+        id: Int,
+        title: String,
+        summary: String,
+        category: String,
+        imageUri: Uri?,
+        removeImage: Boolean,
+    ) = run("作品已更新，等待审核") {
+        val cover = when {
+            imageUri != null -> uploadImage(context, imageUri)
+            removeImage -> ""
+            else -> null
+        }
+        api.updateWork(
+            id,
+            WorkUpdateRequest(
+                title = title,
+                summary = summary,
+                category = category,
+                coverImage = cover,
+            )
+        )
         loadMineInternal()
         refreshHomeInternal()
     }
@@ -258,7 +318,16 @@ class PlatformViewModel(
         val myComments = api.myComments().items
         val follows = api.myFollows().items
         val favorites = api.favorites().items
-        _state.update { it.copy(profile = profile, myWorks = myWorks, myComments = myComments, follows = follows, favorites = favorites) }
+        _state.update {
+            it.copy(
+                profile = profile,
+                myWorks = myWorks,
+                myComments = myComments,
+                follows = follows,
+                followedAuthorIds = follows.map { follow -> follow.followedId }.toSet(),
+                favorites = favorites
+            )
+        }
     }
 
     fun loadAdmin() = run(null) {
@@ -299,10 +368,33 @@ class PlatformViewModel(
                 block()
                 if (successMessage != null) _state.update { it.copy(message = successMessage) }
             } catch (e: Exception) {
-                _state.update { it.copy(message = e.message ?: "请求失败") }
+                _state.update { it.copy(message = readableError(e)) }
             } finally {
                 _state.update { it.copy(loading = false) }
             }
         }
+    }
+
+    private fun validateAccount(account: String) {
+        val trimmed = account.trim()
+        val accountPattern = Regex("^(?:1\\d{10}|[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})$")
+        if (trimmed.isBlank()) {
+            throw IllegalArgumentException("请先输入手机号或邮箱")
+        }
+        if (!accountPattern.matches(trimmed)) {
+            throw IllegalArgumentException("请输入正确的手机号或邮箱")
+        }
+    }
+
+    private fun readableError(e: Exception): String {
+        if (e is HttpException) {
+            val detail = e.response()?.errorBody()?.string()
+                ?.substringAfter("\"detail\":\"", "")
+                ?.substringBefore("\"")
+                ?.takeIf { it.isNotBlank() }
+            if (!detail.isNullOrBlank()) return detail
+            if (e.code() == 422) return "请输入正确的手机号或邮箱"
+        }
+        return e.message ?: "请求失败"
     }
 }

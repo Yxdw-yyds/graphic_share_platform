@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ORMModel(BaseModel):
@@ -71,7 +71,7 @@ class CommentOut(ORMModel):
     status: str
     created_at: datetime
     user: UserOut | None = None
-    replies: list["CommentOut"] = []
+    replies: list["CommentOut"] = Field(default_factory=list)
 
 
 class ReportOut(ORMModel):

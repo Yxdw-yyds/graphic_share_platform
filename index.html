@@ -259,6 +259,15 @@
       background: rgba(29, 161, 242, 0.08);
     }
 
+    .follow-btn.followed {
+      background: var(--primary-color);
+      color: #fff;
+    }
+
+    .follow-btn.followed:hover {
+      background: #1686cc;
+    }
+
     .user-avatar {
       width: 48px;
       height: 48px;
@@ -889,6 +898,7 @@
     const state = {
       currentUser: localStorage.getItem('user'),
       posts: [],
+      followedAuthorIds: new Set(),
       generatedCaptcha: '',
       sentOtp: {} // 存储发送的验证码 { account: code }
     };
@@ -1164,7 +1174,15 @@
     }
 
     function renderFeed() {
-      postFeed.innerHTML = state.posts.map(post => `
+      const currentUserId = getCurrentUserId();
+      postFeed.innerHTML = state.posts.map(post => {
+        const authorId = Number(post.raw?.author_id || post.raw?.author?.id || 0);
+        const isOwnPost = authorId && authorId === currentUserId;
+        const isFollowed = authorId && state.followedAuthorIds.has(authorId);
+        const followButton = authorId && !isOwnPost
+          ? `<button class="follow-btn ${isFollowed ? 'followed' : ''}" data-author-id="${authorId}" onclick="event.stopPropagation(); followAuthor(${authorId})">${isFollowed ? '已关注' : '关注'}</button>`
+          : '';
+        return `
         <article class="post-card" id="post-${post.id}">
           <div class="post-header">
             <img src="https://api.dicebear.com/7.x/thumbs/svg?seed=${post.avatarSeed}" class="user-avatar" />
@@ -1172,7 +1190,7 @@
               <span class="user-name">${post.user}</span>
               <span class="post-time">${post.time}</span>
             </div>
-            <button class="follow-btn" onclick="followAuthor(${post.raw?.author_id || 0})">关注</button>
+            ${followButton}
           </div>
           <div class="post-content">
             <p class="post-text">${post.text}</p>
@@ -1203,7 +1221,8 @@
             </div>
           </div>
         </article>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function renderComments(post) {
@@ -1444,6 +1463,7 @@
       checkLoginStatus();
       restoreRememberedLogin();
       await loadTrendingTopics();
+      await loadFollowState();
       await loadPosts();
     }
 
@@ -1585,6 +1605,23 @@
       location.reload();
     }
 
+    function getCurrentUserId() {
+      const current = getCurrentUser();
+      return Number(current?.id || 0);
+    }
+
+    async function loadFollowState() {
+      state.followedAuthorIds = new Set();
+      if (!getCurrentUser()) return;
+      try {
+        const follows = await apiFetch('/api/users/me/follows', { silent: true });
+        const ids = (Array.isArray(follows) ? follows : (follows?.items || []))
+          .map(item => Number(item.followed_id || item.followedId || item.followed?.id || item.id))
+          .filter(Boolean);
+        state.followedAuthorIds = new Set(ids);
+      } catch {}
+    }
+
     async function loadPosts(type) {
       try {
         type = type || currentFilter || 'home';
@@ -1670,6 +1707,20 @@
       `).join('');
     }
 
+    function normalizeCommentList(payload) {
+      return Array.isArray(payload) ? payload : (payload?.items || []);
+    }
+
+    async function refreshPostComments(postId) {
+      const post = state.posts.find(p => String(p.id) === String(postId));
+      if (!post) return;
+      post.comments = normalizeCommentList(await apiFetch(`/api/works/${postId}/comments`, { silent: true }));
+      const list = document.getElementById(`comment-list-${postId}`);
+      if (list) list.innerHTML = renderComments(post);
+      const section = document.getElementById(`comment-section-${postId}`);
+      if (section) section.style.display = 'block';
+    }
+
     async function submitComment(postId) {
       if (!getCurrentUser()) return acf.toast('请先登录', 'warning');
       const input = document.getElementById(`main-comment-input-${postId}`);
@@ -1682,7 +1733,7 @@
         });
         input.value = '';
         acf.toast('评论已发送', 'success');
-        await loadPosts();
+        await refreshPostComments(postId);
       } catch (err) {
         acf.toast(err.message, 'error');
       }
@@ -1698,7 +1749,8 @@
           method: 'POST',
           body: JSON.stringify({ content: text, parent_id: Number(commentId) })
         });
-        await loadPosts();
+        input.value = '';
+        await refreshPostComments(postId);
       } catch (err) {
         acf.toast(err.message, 'error');
       }
@@ -1722,12 +1774,26 @@
       } catch {}
     }
 
+    function updateFollowButtons(authorId) {
+      const isFollowed = state.followedAuthorIds.has(Number(authorId));
+      document.querySelectorAll(`.follow-btn[data-author-id="${authorId}"]`).forEach(btn => {
+        btn.classList.toggle('followed', isFollowed);
+        btn.textContent = isFollowed ? '已关注' : '关注';
+      });
+    }
+
     async function followAuthor(authorId) {
       if (!getCurrentUser()) return acf.toast('请先登录', 'warning');
       if (!authorId) return acf.toast('作者信息不存在', 'warning');
+      if (Number(authorId) === getCurrentUserId()) return;
       try {
         const res = await apiFetch(`/api/users/${authorId}/follow`, { method: 'POST' });
-        acf.toast(res.followed ? '已关注作者' : '已取消关注', 'success');
+        if (res.followed) {
+          state.followedAuthorIds.add(Number(authorId));
+        } else {
+          state.followedAuthorIds.delete(Number(authorId));
+        }
+        updateFollowButtons(authorId);
       } catch {}
     }
 
