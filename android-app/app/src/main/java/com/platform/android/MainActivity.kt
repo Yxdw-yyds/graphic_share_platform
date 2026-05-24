@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.layout.Arrangement
@@ -29,6 +30,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -65,17 +67,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.IconButton
 import androidx.compose.material.ExperimentalMaterialApi
@@ -89,6 +98,7 @@ import com.platform.android.BuildConfig
 import com.platform.android.data.AppContainer
 import com.platform.android.data.ChapterDto
 import com.platform.android.data.CommentDto
+import com.platform.android.data.CollectionDto
 import com.platform.android.data.FollowDto
 import com.platform.android.data.ReportDto
 import com.platform.android.data.UserDto
@@ -103,7 +113,12 @@ private val AcText = Color(0xFF0F1419)
 private val AcMuted = Color(0xFF536471)
 private val AcBorder = Color(0xFFEFF3F4)
 private val AcDanger = Color(0xFFE0245E)
-private val StatusText = mapOf("approved" to "已发布", "pending" to "待审核", "rejected" to "已驳回")
+private val StatusText = mapOf(
+    "approved" to "已发布",
+    "ai_approved" to "AI初审通过",
+    "pending" to "待人工审核",
+    "rejected" to "已驳回"
+)
 
 private val AcColorScheme = lightColorScheme(
     primary = AcPrimary,
@@ -139,7 +154,7 @@ private fun PlatformApp(container: AppContainer) {
     LaunchedEffect(state.message) {
         state.message?.let {
             snackbar.showSnackbar(it)
-            if (it.contains("作品已提交审核")) {
+            if (it.contains("作品已提交") || it.contains("AI初审") || it.contains("作品已更新")) {
                 tab = "mine"
                 vm.loadMine()
             }
@@ -165,6 +180,7 @@ private fun PlatformApp(container: AppContainer) {
     BackHandler(enabled = !session.isAdmin && tab != "home") {
         tab = "home"
         vm.closeWorkDetail()
+        vm.closePublicProfile()
         vm.refreshHome()
     }
 
@@ -206,15 +222,15 @@ private fun PlatformApp(container: AppContainer) {
                         NavItem("管理后台", "admin", "admin", "🛠") { tab = "admin"; vm.loadAdmin() }
                         NavItem("退出登录", "logout", tab, "↩") { vm.logout(); tab = "home" }
                     } else {
-                        NavItem("首页", "home", tab, "🏠") { tab = "home"; vm.closeWorkDetail(); vm.refreshHome() }
-                        NavItem("热门", "hot", tab, "🔥") { tab = "hot"; vm.closeWorkDetail(); vm.refreshHome(hot = true) }
-                        NavItem("资讯", "news", tab, "📰") { tab = "news"; vm.closeWorkDetail(); vm.refreshHome(category = "资讯") }
+                        NavItem("首页", "home", tab, "🏠") { tab = "home"; vm.closeWorkDetail(); vm.closePublicProfile(); vm.refreshHome() }
+                        NavItem("热门", "hot", tab, "🔥") { tab = "hot"; vm.closeWorkDetail(); vm.closePublicProfile(); vm.refreshHome(hot = true) }
+                        NavItem("资讯", "news", tab, "📰") { tab = "news"; vm.closeWorkDetail(); vm.closePublicProfile(); vm.refreshHome(category = "资讯") }
                         NavItem("收藏", "favorites", tab, "⭐") {
                             tab = "favorites"
                             vm.closeWorkDetail()
                             if (session.isLoggedIn) vm.loadMine()
                         }
-                        NavItem("我的", "mine", tab, "👤") { tab = "mine"; vm.closeWorkDetail(); if (session.isLoggedIn) vm.loadMine() }
+                        NavItem("我的", "mine", tab, "👤") { tab = "mine"; vm.closeWorkDetail(); vm.closePublicProfile(); if (session.isLoggedIn) vm.loadMine() }
                     }
                 }
             },
@@ -373,27 +389,28 @@ private fun LoginScreen(vm: PlatformViewModel) {
     val prefs = remember { context.getSharedPreferences("login_cache", android.content.Context.MODE_PRIVATE) }
     var entrance by remember { mutableStateOf("user") }
     var mode by remember { mutableStateOf("login_pwd") }
-    var loginAccount by remember { mutableStateOf(prefs.getString("account", "") ?: "") }
-    var adminAccount by remember { mutableStateOf(prefs.getString("account", "") ?: "") }
+    var loginAccount by remember { mutableStateOf(prefs.getString("user_account", prefs.getString("account", "")) ?: "") }
+    var adminAccount by remember { mutableStateOf(prefs.getString("admin_account", "") ?: "") }
     var otpAccount by remember { mutableStateOf("") }
     var registerAccount by remember { mutableStateOf("") }
     var resetAccount by remember { mutableStateOf("") }
-    var loginPassword by remember { mutableStateOf(prefs.getString("password", "") ?: "") }
-    var adminPassword by remember { mutableStateOf(prefs.getString("password", "") ?: "") }
+    var loginPassword by remember { mutableStateOf(prefs.getString("user_password", prefs.getString("password", "")) ?: "") }
+    var adminPassword by remember { mutableStateOf(prefs.getString("admin_password", "") ?: "") }
     var registerPassword by remember { mutableStateOf("") }
     var resetPassword by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var nickname by remember { mutableStateOf("") }
-    var rememberPassword by remember { mutableStateOf(prefs.getBoolean("remember", false)) }
-    fun cacheLogin(account: String, password: String) {
+    var userRememberPassword by remember { mutableStateOf(prefs.getBoolean("user_remember", prefs.getBoolean("remember", false))) }
+    var adminRememberPassword by remember { mutableStateOf(prefs.getBoolean("admin_remember", false)) }
+    fun cacheLogin(prefix: String, remember: Boolean, account: String, password: String) {
         prefs.edit().apply {
-            putBoolean("remember", rememberPassword)
-            if (rememberPassword) {
-                putString("account", account)
-                putString("password", password)
+            putBoolean("${prefix}_remember", remember)
+            if (remember) {
+                putString("${prefix}_account", account)
+                putString("${prefix}_password", password)
             } else {
-                remove("account")
-                remove("password")
+                remove("${prefix}_account")
+                remove("${prefix}_password")
             }
         }.apply()
     }
@@ -426,17 +443,17 @@ private fun LoginScreen(vm: PlatformViewModel) {
                 if (mode == "admin_pwd") {
                     AppTextField(adminAccount, { adminAccount = it }, "手机号或邮箱")
                     AppTextField(adminPassword, { adminPassword = it }, "管理员密码", password = true)
-                    RememberLoginRow(rememberPassword) { rememberPassword = it }
+                    RememberLoginRow(adminRememberPassword) { adminRememberPassword = it }
                     PrimaryButton("进入管理后台", Modifier.fillMaxWidth()) {
-                        cacheLogin(adminAccount, adminPassword)
+                        cacheLogin("admin", adminRememberPassword, adminAccount, adminPassword)
                         vm.loginAdmin(adminAccount, adminPassword)
                     }
                 } else if (mode == "login_pwd") {
                     AppTextField(loginAccount, { loginAccount = it }, "手机号或邮箱")
                     AppTextField(loginPassword, { loginPassword = it }, "密码", password = true)
-                    RememberLoginRow(rememberPassword) { rememberPassword = it }
+                    RememberLoginRow(userRememberPassword) { userRememberPassword = it }
                     PrimaryButton("登录", Modifier.fillMaxWidth()) {
-                        cacheLogin(loginAccount, loginPassword)
+                        cacheLogin("user", userRememberPassword, loginAccount, loginPassword)
                         vm.login(loginAccount, loginPassword)
                     }
                 } else if (mode == "login_otp") {
@@ -493,28 +510,29 @@ private fun LoginFloatingDialog(vm: PlatformViewModel) {
     val prefs = remember { context.getSharedPreferences("login_cache", android.content.Context.MODE_PRIVATE) }
     var entrance by remember { mutableStateOf("user") }
     var mode by remember { mutableStateOf("pwd") }
-    var loginAccount by remember { mutableStateOf(prefs.getString("account", "") ?: "") }
-    var adminAccount by remember { mutableStateOf(prefs.getString("account", "") ?: "") }
+    var loginAccount by remember { mutableStateOf(prefs.getString("user_account", prefs.getString("account", "")) ?: "") }
+    var adminAccount by remember { mutableStateOf(prefs.getString("admin_account", "") ?: "") }
     var otpAccount by remember { mutableStateOf("") }
     var registerAccount by remember { mutableStateOf("") }
     var resetAccount by remember { mutableStateOf("") }
-    var loginPassword by remember { mutableStateOf(prefs.getString("password", "") ?: "") }
-    var adminPassword by remember { mutableStateOf(prefs.getString("password", "") ?: "") }
+    var loginPassword by remember { mutableStateOf(prefs.getString("user_password", prefs.getString("password", "")) ?: "") }
+    var adminPassword by remember { mutableStateOf(prefs.getString("admin_password", "") ?: "") }
     var registerPassword by remember { mutableStateOf("") }
     var resetPassword by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
     var nickname by remember { mutableStateOf("") }
-    var rememberPassword by remember { mutableStateOf(prefs.getBoolean("remember", false)) }
+    var userRememberPassword by remember { mutableStateOf(prefs.getBoolean("user_remember", prefs.getBoolean("remember", false))) }
+    var adminRememberPassword by remember { mutableStateOf(prefs.getBoolean("admin_remember", false)) }
 
-    fun cacheLogin(account: String, password: String) {
+    fun cacheLogin(prefix: String, remember: Boolean, account: String, password: String) {
         prefs.edit().apply {
-            putBoolean("remember", rememberPassword)
-            if (rememberPassword) {
-                putString("account", account)
-                putString("password", password)
+            putBoolean("${prefix}_remember", remember)
+            if (remember) {
+                putString("${prefix}_account", account)
+                putString("${prefix}_password", password)
             } else {
-                remove("account")
-                remove("password")
+                remove("${prefix}_account")
+                remove("${prefix}_password")
             }
         }.apply()
     }
@@ -599,10 +617,10 @@ private fun LoginFloatingDialog(vm: PlatformViewModel) {
                     "admin" -> {
                         item { AppTextField(adminAccount, { adminAccount = it }, "手机号/邮箱") }
                         item { AppTextField(adminPassword, { adminPassword = it }, "管理员密码", password = true) }
-                        item { RememberLoginRow(rememberPassword) { rememberPassword = it } }
+                        item { RememberLoginRow(adminRememberPassword) { adminRememberPassword = it } }
                         item {
                             PrimaryButton("进入管理后台", Modifier.fillMaxWidth()) {
-                                cacheLogin(adminAccount, adminPassword)
+                                cacheLogin("admin", adminRememberPassword, adminAccount, adminPassword)
                                 vm.loginAdmin(adminAccount, adminPassword)
                             }
                         }
@@ -610,10 +628,10 @@ private fun LoginFloatingDialog(vm: PlatformViewModel) {
                     else -> {
                         item { AppTextField(loginAccount, { loginAccount = it }, "手机号/邮箱") }
                         item { AppTextField(loginPassword, { loginPassword = it }, "密码", password = true) }
-                        item { RememberLoginRow(rememberPassword) { rememberPassword = it } }
+                        item { RememberLoginRow(userRememberPassword) { userRememberPassword = it } }
                         item {
                             PrimaryButton("登录", Modifier.fillMaxWidth()) {
-                                cacheLogin(loginAccount, loginPassword)
+                                cacheLogin("user", userRememberPassword, loginAccount, loginPassword)
                                 vm.login(loginAccount, loginPassword)
                             }
                         }
@@ -682,6 +700,7 @@ private fun HomeScreen(state: PlatformUiState, vm: PlatformViewModel, initialCat
     }
 
     BackHandler(enabled = reportTarget != null) { reportTarget = null }
+    BackHandler(enabled = state.publicProfile != null) { vm.closePublicProfile() }
     BackHandler(enabled = detailId != null) {
         detailId = null
         vm.closeWorkDetail()
@@ -704,7 +723,12 @@ private fun HomeScreen(state: PlatformUiState, vm: PlatformViewModel, initialCat
             vm.loadTrending()
         }
     ) {
-    if (detailId != null) {
+    if (state.publicProfile != null) {
+        PublicProfileScreen(state, vm) { work ->
+            detailId = work.id
+            vm.openWork(work.id)
+        }
+    } else if (detailId != null) {
         LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             item {
                 WorkDetail(state, vm, detailId!!) {
@@ -736,6 +760,8 @@ private fun HomeScreen(state: PlatformUiState, vm: PlatformViewModel, initialCat
             WorkCard(work, onOpen = {
                 detailId = work.id
                 vm.openWork(work.id)
+            }, onAuthorOpen = {
+                vm.openPublicProfile(work.authorId)
             }, onComment = {
                 detailId = work.id
                 vm.openWork(work.id)
@@ -791,6 +817,7 @@ private fun FavoritesScreen(state: PlatformUiState, vm: PlatformViewModel) {
                             detailId = work.id
                             vm.openWork(work.id)
                         },
+                        onAuthorOpen = { vm.openPublicProfile(work.authorId) },
                         onComment = {
                             detailId = work.id
                             vm.openWork(work.id)
@@ -807,7 +834,57 @@ private fun FavoritesScreen(state: PlatformUiState, vm: PlatformViewModel) {
 }
 
 @Composable
-private fun WorkDetail(state: PlatformUiState, vm: PlatformViewModel, id: Int, onClose: () -> Unit) {
+private fun PublicProfileScreen(state: PlatformUiState, vm: PlatformViewModel, onOpenWork: (WorkDto) -> Unit) {
+    val profile = state.publicProfile ?: return
+    val selected = state.publicCollection
+    val visibleWorks = selected?.items?.mapNotNull { it.work } ?: state.publicWorks
+    LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item {
+            AppCard {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Avatar(profile.nickname)
+                        Column {
+                            Text(profile.nickname, fontWeight = FontWeight.Black, style = MaterialTheme.typography.titleMedium)
+                            Text("ID: U${profile.id} · ${profile.creatorLevel}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+                            Text(profile.bio ?: "这个用户还没有填写简介", color = AcMuted, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        }
+                    }
+                    TextButton(onClick = { vm.closePublicProfile() }) { Text("返回") }
+                }
+            }
+        }
+        if (state.publicCollections.isNotEmpty()) {
+            item {
+                AppCard {
+                    Text("合集和系列", fontWeight = FontWeight.Bold)
+                    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        item {
+                            CompactPill("全部动态", selected = selected == null) {
+                                vm.openPublicProfile(profile.id)
+                            }
+                        }
+                        items(state.publicCollections) { collection ->
+                            CompactPill("${collection.title} (${collection.items.size})", selected = selected?.id == collection.id) {
+                                vm.openPublicCollection(collection.id)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item { SectionTitle(selected?.title ?: "公开动态") }
+        if (visibleWorks.isEmpty()) {
+            item { EmptyAdminCard("暂无公开内容") }
+        }
+        items(visibleWorks) { work ->
+            WorkCard(work, onOpen = { onOpenWork(work) }, vm = vm, currentUserId = state.profile?.id, followedAuthorIds = state.followedAuthorIds)
+        }
+    }
+}
+
+@Composable
+private fun WorkDetail(state: PlatformUiState, vm: PlatformViewModel, id: Int, showComments: Boolean = true, onClose: () -> Unit) {
     val work = state.currentWork ?: return
     var comment by remember { mutableStateOf("") }
     var reportTarget by remember { mutableStateOf<Pair<String, Int>?>(null) }
@@ -825,10 +902,16 @@ private fun WorkDetail(state: PlatformUiState, vm: PlatformViewModel, id: Int, o
     }
     AppCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                Modifier
+                    .weight(1f)
+                    .clickable { vm.openPublicProfile(work.authorId) },
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 Avatar(work.author?.nickname ?: "用户")
                 Column {
-                    Text(work.author?.nickname ?: "用户", fontWeight = FontWeight.Bold)
+                    Text(work.author?.nickname ?: "用户", fontWeight = FontWeight.Bold, color = AcPrimary)
                     Text(work.createdAt.replace("T", " "), color = AcMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1)
                 }
             }
@@ -836,6 +919,16 @@ private fun WorkDetail(state: PlatformUiState, vm: PlatformViewModel, id: Int, o
         }
         Text(work.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
         Text("#${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted)
+        if (state.currentWorkCollections.isNotEmpty()) {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                item { Text("所属合集", color = AcMuted, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp)) }
+                items(state.currentWorkCollections) { collection ->
+                    CompactPill(collection.title, selected = false) {
+                        vm.openPublicCollection(collection.id)
+                    }
+                }
+            }
+        }
         if (showSummary) Text(work.summary ?: "", color = AcText)
         WorkImage(work.coverImage)
         
@@ -850,19 +943,21 @@ private fun WorkDetail(state: PlatformUiState, vm: PlatformViewModel, id: Int, o
             onReport = { reportTarget = "work" to id },
         )
 
-        HorizontalDivider(color = AcBorder)
-        Text("评论 (${state.comments.size})", fontWeight = FontWeight.Bold)
-        AppTextField(comment, { comment = it }, "发表你的看法...")
-        PrimaryButton("发送评论", Modifier.fillMaxWidth()) { 
-            if (comment.isNotBlank()) {
-                vm.comment(id, comment)
-                comment = ""
+        if (showComments) {
+            HorizontalDivider(color = AcBorder)
+            Text("评论 (${state.comments.size})", fontWeight = FontWeight.Bold)
+            AppTextField(comment, { comment = it }, "发表你的看法...")
+            PrimaryButton("发送评论", Modifier.fillMaxWidth()) {
+                if (comment.isNotBlank()) {
+                    vm.comment(id, comment)
+                    comment = ""
+                }
             }
-        }
-        
-        state.comments.forEach { c ->
-            CommentItem(c, vm, id) { targetType, targetId ->
-                reportTarget = targetType to targetId
+
+            state.comments.forEach { c ->
+                CommentItem(c, vm, id) { targetType, targetId ->
+                    reportTarget = targetType to targetId
+                }
             }
         }
     }
@@ -1011,8 +1106,10 @@ private fun PublishScreen(vm: PlatformViewModel) {
     val context = LocalContext.current
     var category by remember { mutableStateOf("#生活分享") }
     var content by remember { mutableStateOf("") }
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
-    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri -> imageUri = uri }
+    var imageUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    val imagePicker = rememberLauncherForActivityResult(ActivityResultContracts.GetMultipleContents()) { uris ->
+        imageUris = (imageUris + uris).distinct().take(4)
+    }
     
     val categories = listOf("#生活分享", "#摄影打卡", "#前端开发", "#运动健康", "#AI人工智能")
 
@@ -1030,14 +1127,22 @@ private fun PublishScreen(vm: PlatformViewModel) {
                     }
                 }
                 AppTextField(content, { content = it }, "分享你的想法...", minLines = 6)
-                WorkImage(imageUri?.toString())
-                SecondaryButton(if(imageUri==null) "添加图片" else "更换图片", Modifier.fillMaxWidth()) { imagePicker.launch("image/*") }
+                SelectedImageGrid(
+                    imageUris = imageUris,
+                    onRemove = { uri -> imageUris = imageUris.filterNot { it == uri } }
+                )
+                SecondaryButton(
+                    if (imageUris.isEmpty()) "添加图片（最多4张）" else "继续添加（${imageUris.size}/4）",
+                    Modifier.fillMaxWidth()
+                ) {
+                    if (imageUris.size < 4) imagePicker.launch("image/*")
+                }
                 
                 Spacer(Modifier.height(8.dp))
                 PrimaryButton("立即发布", Modifier.fillMaxWidth()) {
-                    vm.publishWithImage(context, imageUri, null, content, category, content)
+                    vm.publishWithImages(context, imageUris, null, content, category, content)
                     content = ""
-                    imageUri = null
+                    imageUris = emptyList()
                 }
             }
         }
@@ -1050,7 +1155,7 @@ private fun MineScreen(state: PlatformUiState, vm: PlatformViewModel) {
     val menuItems = listOf(
         "info" to "个人信息",
         "works" to "个人动态",
-        "chapters" to "章节管理",
+        "chapters" to "合集和系列",
         "follows" to "我的关注",
         "comments" to "评论管理",
         "logout" to "退出登录",
@@ -1058,6 +1163,15 @@ private fun MineScreen(state: PlatformUiState, vm: PlatformViewModel) {
     )
     BackHandler(enabled = section != "menu") {
         section = "menu"
+    }
+    BackHandler(enabled = state.publicProfile != null) {
+        vm.closePublicProfile()
+    }
+    if (state.publicProfile != null) {
+        PublicProfileScreen(state, vm) { work ->
+            vm.openWork(work.id)
+        }
+        return
     }
     RefreshBox(refreshing = state.loading, onRefresh = { vm.loadMine() }) {
     LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1232,6 +1346,12 @@ private fun MyWorkCard(work: WorkDto, vm: PlatformViewModel) {
     }
     AppCard {
         Text("#${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted)
+        if (work.status == "ai_approved") {
+            Text("已临时发布，等待管理员终审", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+        }
+        if (work.status == "rejected" && !work.reviewNote.isNullOrBlank()) {
+            Text("驳回原因：${work.reviewNote}", color = AcDanger, style = MaterialTheme.typography.bodySmall)
+        }
         if (editing) {
             AppTextField(title, { title = it }, "标题")
             AppTextField(summary, { summary = it }, "正文/摘要", minLines = 4)
@@ -1275,40 +1395,131 @@ private fun MyWorkCard(work: WorkDto, vm: PlatformViewModel) {
 
 @Composable
 private fun ChapterManager(state: PlatformUiState, vm: PlatformViewModel) {
-    var selectedWorkId by remember { mutableStateOf(state.myWorks.firstOrNull()?.id) }
-    LaunchedEffect(state.myWorks) {
-        if (selectedWorkId == null && state.myWorks.isNotEmpty()) {
-            selectedWorkId = state.myWorks.first().id
-            vm.loadWorkChapters(state.myWorks.first().id)
+    var selectedCollectionId by remember { mutableStateOf<Int?>(null) }
+    var creating by remember { mutableStateOf(false) }
+    var title by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    LaunchedEffect(state.collections) {
+        if (selectedCollectionId == null && state.collections.isNotEmpty()) {
+            selectedCollectionId = state.collections.first().id
+        } else if (selectedCollectionId != null && state.collections.none { it.id == selectedCollectionId }) {
+            selectedCollectionId = state.collections.firstOrNull()?.id
         }
     }
-    AppCard {
-        if (state.myWorks.isEmpty()) {
-            Text("暂无动态，发布内容后可创建合集", color = AcMuted)
-            return@AppCard
-        }
-        Text("合集管理", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-        Text("选择一个已有动态作为合集，再维护它下面的章节内容。动态本身请到个人动态里编辑。", color = AcMuted, style = MaterialTheme.typography.bodySmall)
-        Text("选择已有动态", fontWeight = FontWeight.Bold)
-        state.myWorks.forEach { work ->
-            Row(Modifier.fillMaxWidth().clickable {
-                selectedWorkId = work.id
-                vm.loadWorkChapters(work.id)
-            }.padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(if (work.id == selectedWorkId) "●" else "○", color = AcPrimary, modifier = Modifier.width(24.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(work.title, maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = FontWeight.Bold)
-                    Text("#${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+    val selected = state.collections.firstOrNull { it.id == selectedCollectionId }
+    val selectedWorkIds = selected?.items?.map { it.workId }?.toSet().orEmpty()
+    state.currentWork?.let { work ->
+        Dialog(
+            onDismissRequest = { vm.closeWorkDetail() },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.35f))
+                    .clickable { vm.closeWorkDetail() }
+                    .padding(14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 720.dp)
+                        .clickable {},
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    item { WorkDetail(state, vm, work.id, showComments = false) { vm.closeWorkDetail() } }
                 }
             }
         }
-        
-        selectedWorkId?.let { workId ->
-            Spacer(Modifier.height(10.dp))
+    }
+    AppCard {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("合集和系列", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text("自建主题，把已有动态按顺序放进合集。", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+            }
+            TextButton(onClick = { creating = !creating }) { Text(if (creating) "收起" else "新建") }
+        }
+        if (creating) {
+            AppTextField(title, { title = it }, "合集标题")
+            AppTextField(description, { description = it }, "合集简介", minLines = 2)
+            PrimaryButton("创建合集", Modifier.fillMaxWidth()) {
+                if (title.isNotBlank()) {
+                    vm.createCollection(title, description)
+                    title = ""
+                    description = ""
+                    creating = false
+                }
+            }
+        }
+
+        if (state.collections.isEmpty()) {
+            Text("暂无合集，点击右上角新建一个主题。", color = AcMuted)
+            return@AppCard
+        }
+
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(state.collections) { collection ->
+                Button(
+                    onClick = { selectedCollectionId = collection.id },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (collection.id == selectedCollectionId) AcPrimary else Color(0xFFE8F5FD),
+                        contentColor = if (collection.id == selectedCollectionId) Color.White else AcPrimary
+                    )
+                ) {
+                    Text("${collection.title} (${collection.items.size})", maxLines = 1)
+                }
+            }
+        }
+
+        selected?.let { collection ->
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(collection.title, fontWeight = FontWeight.Bold)
+                    Text(collection.description ?: "暂无简介", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+                }
+                TextButton(onClick = { vm.deleteCollection(collection.id) }) { Text("删除合集", color = AcDanger) }
+            }
             HorizontalDivider(color = AcBorder)
-            Spacer(Modifier.height(10.dp))
-            NewChapterForm(workId, state.chapters.size + 1, vm)
-            state.chapters.forEach { chapter -> ChapterEditor(chapter, workId, vm) }
+            Text("合集内容", fontWeight = FontWeight.Bold)
+            if (collection.items.isEmpty()) {
+                Text("还没有动态，下面选择已有动态加入。", color = AcMuted)
+            }
+            collection.items.sortedBy { it.sortOrder }.forEachIndexed { index, item ->
+                val work = item.work
+                Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AcBg)) {
+                    Row(Modifier.padding(10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("${index + 1}", color = AcPrimary, fontWeight = FontWeight.Black, modifier = Modifier.width(24.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(work?.title ?: "动态 ${item.workId}", fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(work?.category ?: "", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+                        }
+                        TextButton(onClick = { vm.openWork(item.workId) }) { Text("查看") }
+                        TextButton(onClick = { vm.moveCollectionItem(item.id, (item.sortOrder - 1).coerceAtLeast(1)) }) { Text("上移") }
+                        TextButton(onClick = { vm.moveCollectionItem(item.id, item.sortOrder + 1) }) { Text("下移") }
+                        TextButton(onClick = { vm.removeCollectionItem(item.id) }) { Text("移除", color = AcDanger) }
+                    }
+                }
+            }
+            Text("选择已有动态加入", fontWeight = FontWeight.Bold)
+            if (state.myWorks.isEmpty()) {
+                Text("暂无动态，先发布内容后再加入合集。", color = AcMuted)
+            }
+            state.myWorks.forEach { work ->
+                val added = selectedWorkIds.contains(work.id)
+                Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Column(Modifier.weight(1f)) {
+                        Text(work.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("#${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+                    }
+                    TextButton(onClick = { vm.openWork(work.id) }) { Text("查看") }
+                    SecondaryButton(if (added) "已加入" else "加入", Modifier.width(86.dp)) {
+                        if (!added) vm.addWorkToCollection(collection.id, work.id, collection.items.size + 1)
+                    }
+                }
+            }
         }
     }
 }
@@ -1395,11 +1606,10 @@ private fun CommentManager(state: PlatformUiState, vm: PlatformViewModel) {
                 Text("暂无帖子", color = AcMuted)
                 return@AppCard
             }
-            CommentTableHeader()
             state.myWorks.forEach { work ->
-                CommentWorkRow(work) {
+                CommentWorkCard(work) {
                     selectedWork = work
-                    vm.openWork(work.id)
+                    vm.openWorkCommentsForManage(work.id)
                 }
             }
         } else {
@@ -1411,7 +1621,7 @@ private fun CommentManager(state: PlatformUiState, vm: PlatformViewModel) {
             } else if (state.comments.isEmpty()) {
                 Text("该帖子暂无评论", color = AcMuted)
             } else {
-                state.comments.forEach { comment ->
+                state.comments.filter { it.parentId == null }.forEach { comment ->
                     CommentManageItem(comment, vm)
                 }
             }
@@ -1420,47 +1630,71 @@ private fun CommentManager(state: PlatformUiState, vm: PlatformViewModel) {
 }
 
 @Composable
-private fun CommentTableHeader() {
-    Row(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text("ID", modifier = Modifier.width(44.dp), color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-        Text("标题", modifier = Modifier.weight(1.4f), color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-        Text("分类", modifier = Modifier.weight(0.9f), color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-        Text("评论", modifier = Modifier.width(48.dp), color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-        Text("操作", modifier = Modifier.width(78.dp), color = AcMuted, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
-    }
-}
-
-@Composable
-private fun CommentWorkRow(work: WorkDto, onOpen: () -> Unit) {
-    HorizontalDivider(color = AcBorder)
-    Row(Modifier.fillMaxWidth().padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(work.id.toString(), modifier = Modifier.width(44.dp), color = AcText)
-        Text(work.title, modifier = Modifier.weight(1.4f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(work.category, modifier = Modifier.weight(0.9f), color = AcText, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(work.commentCount.toString(), modifier = Modifier.width(48.dp), color = AcText)
-        Button(
-            onClick = onOpen,
-            modifier = Modifier.width(78.dp).height(34.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = AcPrimary, contentColor = Color.White),
-            contentPadding = PaddingValues(horizontal = 4.dp)
+private fun CommentWorkCard(work: WorkDto, onOpen: () -> Unit) {
+    Card(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp)
+            .border(1.dp, AcBorder, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(8.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White)
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("查看", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(work.title, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    "动态ID ${work.id} · #${work.category} · ${work.commentCount} 条评论",
+                    color = AcMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            Button(
+                onClick = onOpen,
+                modifier = Modifier.width(78.dp).height(34.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = AcPrimary, contentColor = Color.White),
+                contentPadding = PaddingValues(horizontal = 4.dp)
+            ) {
+                Text("查看", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+            }
         }
     }
 }
 
 @Composable
-private fun CommentManageItem(comment: CommentDto, vm: PlatformViewModel) {
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AcBg)) {
+private fun CommentManageItem(comment: CommentDto, vm: PlatformViewModel, parentName: String? = null) {
+    val author = userDisplayName(comment.user, comment.userId)
+    val replyTarget = parentName ?: comment.parentUser?.let { userDisplayName(it, comment.parentId ?: 0) }
+    Card(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = if (replyTarget == null) 8.dp else 4.dp, start = if (replyTarget == null) 0.dp else 18.dp)
+            .border(1.dp, AcBorder, RoundedCornerShape(8.dp))
+            .clip(RoundedCornerShape(8.dp)),
+        colors = CardDefaults.cardColors(containerColor = if (replyTarget == null) Color.White else AcBg)
+    ) {
         Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(comment.user?.nickname ?: "用户", fontWeight = FontWeight.Bold)
-            Text(comment.content, color = AcText)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text(comment.createdAt.replace("T", " "), color = AcMuted, style = MaterialTheme.typography.bodySmall)
-                TextButton(onClick = { vm.deleteComment(comment.id, comment.workId) }) {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Row(Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(author, fontWeight = FontWeight.Bold)
+                    replyTarget?.let {
+                        Text("回复 @$it", color = AcMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
+                }
+                TextButton(onClick = { vm.deleteManagedComment(comment.id, comment.workId) }) {
                     Text("删除", color = AcDanger)
                 }
+            }
+            Text(comment.content, color = AcText)
+            Text(comment.createdAt.replace("T", " "), color = AcMuted, style = MaterialTheme.typography.bodySmall)
+            comment.replies.forEach { reply ->
+                CommentManageItem(reply, vm, parentName = author)
             }
         }
     }
@@ -1469,15 +1703,18 @@ private fun CommentManageItem(comment: CommentDto, vm: PlatformViewModel) {
 @Composable
 private fun FollowCard(follow: FollowDto, vm: PlatformViewModel) {
     val user = follow.followed
-    AppCard {
+    val targetId = user?.id ?: follow.followedId
+    AppCard(Modifier.clickable { vm.openPublicProfile(targetId) }) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Avatar(user?.nickname ?: "用")
+            Box(Modifier.clickable { vm.openPublicProfile(targetId) }) {
+                Avatar(user?.nickname ?: "用")
+            }
             Column(Modifier.weight(1f)) {
-                Text(user?.nickname ?: "用户${follow.followedId}", fontWeight = FontWeight.Bold)
+                Text(user?.nickname ?: "用户${follow.followedId}", fontWeight = FontWeight.Bold, color = AcPrimary)
                 Text(user?.bio ?: "暂无简介", style = MaterialTheme.typography.bodySmall, color = AcMuted)
             }
             Button(
-                onClick = { vm.followAuthor(user?.id ?: follow.followedId) },
+                onClick = { vm.followAuthor(targetId) },
                 modifier = Modifier.width(112.dp).height(40.dp),
                 shape = RoundedCornerShape(999.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE8F5FD), contentColor = AcPrimary),
@@ -1492,8 +1729,11 @@ private fun FollowCard(follow: FollowDto, vm: PlatformViewModel) {
 @Composable
 private fun AdminScreen(state: PlatformUiState, vm: PlatformViewModel) {
     var section by remember { mutableStateOf("review") }
+    var reportSection by remember { mutableStateOf("work") }
     val reviewCount = state.stats?.pendingWorks ?: state.pendingWorks.size
     val reportCount = state.stats?.pendingReports ?: state.reports.size
+    val workReports = state.reports.filter { it.targetType == "work" }
+    val commentReports = state.reports.filter { it.targetType == "comment" }
     BackHandler(enabled = section != "review") {
         section = "review"
     }
@@ -1524,8 +1764,15 @@ private fun AdminScreen(state: PlatformUiState, vm: PlatformViewModel) {
             }
             "reports" -> {
                 item { SectionTitle("举报处理列表 ($reportCount)") }
-                if (state.reports.isEmpty()) item { EmptyAdminCard("暂无待处理举报") }
-                items(state.reports) { ReportCard(it, state, vm) }
+                item {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                        SmallTab("帖子举报", reportSection == "work", Modifier.weight(1f), badgeCount = workReports.size) { reportSection = "work" }
+                        SmallTab("评论举报", reportSection == "comment", Modifier.weight(1f), badgeCount = commentReports.size) { reportSection = "comment" }
+                    }
+                }
+                val visibleReports = if (reportSection == "work") workReports else commentReports
+                if (visibleReports.isEmpty()) item { EmptyAdminCard(if (reportSection == "work") "暂无帖子举报" else "暂无评论举报") }
+                items(visibleReports) { ReportCard(it, state, vm) }
             }
             "users" -> {
                 item { SectionTitle("用户列表 (${state.users.size})") }
@@ -1574,6 +1821,7 @@ private fun AdminStatsCard(stats: com.platform.android.data.StatsDto?) {
 private fun WorkCard(
     work: WorkDto,
     onOpen: () -> Unit,
+    onAuthorOpen: (() -> Unit)? = null,
     onComment: (() -> Unit)? = null,
     onReport: (() -> Unit)? = null,
     vm: PlatformViewModel? = null,
@@ -1586,9 +1834,11 @@ private fun WorkCard(
     val isFollowed = followedAuthorIds.contains(work.authorId)
     AppCard(Modifier.clickable(onClick = onOpen)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Avatar(work.author?.nickname ?: "用户")
-            Column(Modifier.weight(1f)) {
-                Text(work.author?.nickname ?: "用户", fontWeight = FontWeight.Bold)
+            Box(Modifier.clickable(enabled = onAuthorOpen != null) { onAuthorOpen?.invoke() }) {
+                Avatar(work.author?.nickname ?: "用户")
+            }
+            Column(Modifier.weight(1f).clickable(enabled = onAuthorOpen != null) { onAuthorOpen?.invoke() }) {
+                Text(work.author?.nickname ?: "用户", fontWeight = FontWeight.Bold, color = if (onAuthorOpen != null) AcPrimary else AcText)
                 Text(work.createdAt.replace("T", " "), color = AcMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             if (vm != null && work.author != null && !isOwnWork) {
@@ -1619,12 +1869,12 @@ private fun AdminWorkCard(work: WorkDto, state: PlatformUiState, vm: PlatformVie
     var expanded by remember { mutableStateOf(false) }
     val summary = work.summary?.trim().orEmpty()
     val detailWork = state.currentWork?.takeIf { it.id == work.id }
-    val detailChapters = if (detailWork != null) state.chapters else emptyList()
     AppCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(work.title, fontWeight = FontWeight.Bold)
                 Text("${work.author?.nickname ?: "用户"} · #${work.category} · ${StatusText[work.status] ?: work.status}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+                Text("提交审核 ${work.updatedAt.ifBlank { work.createdAt }.replace("T", " ")}", color = AcMuted, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             TextButton(onClick = {
                 expanded = !expanded
@@ -1636,20 +1886,6 @@ private fun AdminWorkCard(work: WorkDto, state: PlatformUiState, vm: PlatformVie
             val displaySummary = display.summary?.trim().orEmpty()
             if (displaySummary.isNotBlank() && displaySummary != display.title.trim()) Text(displaySummary, color = AcText)
             WorkImage(display.coverImage)
-            if (detailChapters.isNotEmpty()) {
-                Text("章节内容", fontWeight = FontWeight.Bold)
-                detailChapters.forEach { chapter ->
-                    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = AcBg)) {
-                        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("P${chapter.sortOrder} · ${chapter.title}", fontWeight = FontWeight.Bold)
-                            Text(chapter.content, color = AcText, maxLines = 5, overflow = TextOverflow.Ellipsis)
-                            WorkImage(chapter.imageUrl)
-                        }
-                    }
-                }
-            } else {
-                Text("正在加载图文详情...", color = AcMuted, style = MaterialTheme.typography.bodySmall)
-            }
             Text("浏览 ${display.viewCount} · 点赞 ${display.likeCount} · 收藏 ${display.favoriteCount} · 评论 ${display.commentCount}", color = AcMuted, style = MaterialTheme.typography.bodySmall)
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1662,26 +1898,32 @@ private fun AdminWorkCard(work: WorkDto, state: PlatformUiState, vm: PlatformVie
 @Composable
 private fun ReportCard(report: ReportDto, state: PlatformUiState, vm: PlatformViewModel) {
     var expanded by remember { mutableStateOf(false) }
-    val targetWork = state.currentWork?.takeIf { report.targetType == "work" && it.id == report.targetId }
+    val detail = state.reportTargetDetails["${report.targetType}:${report.targetId}"]
     AppCard {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
-                Text("${report.targetType} #${report.targetId} · ${report.reason}", fontWeight = FontWeight.Bold)
+                Text("${if (report.targetType == "work") "帖子" else "评论"} #${report.targetId} · ${report.reason}", fontWeight = FontWeight.Bold)
                 Text(report.description ?: "无补充说明", color = AcMuted)
             }
             TextButton(onClick = {
                 expanded = !expanded
                 if (!expanded) return@TextButton
-                if (report.targetType == "work") vm.openWork(report.targetId)
+                vm.openReportTarget(report.targetType, report.targetId)
             }) { Text(if (expanded) "收起" else "查看") }
         }
         if (expanded) {
-            if (targetWork != null) {
-                Text(targetWork.title, fontWeight = FontWeight.Bold)
-                Text(targetWork.summary ?: "", color = AcText, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                WorkImage(targetWork.coverImage)
+            if (detail != null) {
+                Text(detail.work.title, fontWeight = FontWeight.Bold)
+                Text(detail.work.summary ?: "", color = AcText, maxLines = 4, overflow = TextOverflow.Ellipsis)
+                WorkImage(detail.work.coverImage)
+                if (report.targetType == "comment") {
+                    Text("全部评论 (${detail.comments.size})", fontWeight = FontWeight.Bold)
+                    detail.comments.forEach { comment ->
+                        AdminReportCommentItem(comment, report.targetId)
+                    }
+                }
             } else {
-                Text("评论举报会在处理后同步更新状态。", color = AcMuted, style = MaterialTheme.typography.bodySmall)
+                Text("正在加载举报目标详情...", color = AcMuted, style = MaterialTheme.typography.bodySmall)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -1689,6 +1931,37 @@ private fun ReportCard(report: ReportDto, state: PlatformUiState, vm: PlatformVi
             SecondaryButton("驳回", Modifier.weight(1f)) { vm.handleReport(report.id, false) }
         }
     }
+}
+
+@Composable
+private fun AdminReportCommentItem(comment: CommentDto, reportedCommentId: Int) {
+    val isTarget = comment.id == reportedCommentId
+    val parentName = comment.parentUser?.let { userDisplayName(it, comment.parentId ?: 0) }
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp, start = if (comment.parentId == null) 0.dp else 18.dp)
+            .background(if (isTarget) Color(0xFFFFF5F8) else AcBg, RoundedCornerShape(8.dp))
+            .border(if (isTarget) 2.dp else 1.dp, if (isTarget) Color(0xFFE0245E) else AcBorder, RoundedCornerShape(8.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(userDisplayName(comment.user, comment.userId), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+            parentName?.let {
+                Text("回复 @$it", color = AcMuted, style = MaterialTheme.typography.labelSmall)
+            }
+            if (isTarget) Text("被举报", color = AcDanger, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelSmall)
+        }
+        Text("${comment.createdAt.replace("T", " ")} · ${comment.status}", color = AcMuted, style = MaterialTheme.typography.labelSmall)
+        Text(comment.content, color = AcText)
+    }
+}
+
+private fun userDisplayName(user: UserDto?, fallbackId: Int): String {
+    return user?.nickname?.takeIf { it.isNotBlank() }
+        ?: user?.account?.takeIf { it.isNotBlank() }
+        ?: "用户 $fallbackId"
 }
 
 @Composable
@@ -1764,12 +2037,20 @@ private fun AppTextField(
     password: Boolean = false,
     minLines: Int = 1,
 ) {
+    var passwordVisible by remember { mutableStateOf(false) }
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
         minLines = minLines,
-        visualTransformation = if (password) PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None,
+        visualTransformation = if (password && !passwordVisible) PasswordVisualTransformation() else VisualTransformation.None,
+        trailingIcon = if (password) {
+            {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    EyeLineIcon(hidden = !passwordVisible)
+                }
+            }
+        } else null,
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp),
         colors = OutlinedTextFieldDefaults.colors(
@@ -1778,6 +2059,33 @@ private fun AppTextField(
             focusedLabelColor = AcPrimary,
         )
     )
+}
+
+@Composable
+private fun EyeLineIcon(hidden: Boolean) {
+    Canvas(Modifier.size(24.dp)) {
+        val strokeWidth = 1.8.dp.toPx()
+        val eye = Path().apply {
+            moveTo(size.width * 0.08f, size.height * 0.5f)
+            cubicTo(size.width * 0.28f, size.height * 0.18f, size.width * 0.72f, size.height * 0.18f, size.width * 0.92f, size.height * 0.5f)
+            cubicTo(size.width * 0.72f, size.height * 0.82f, size.width * 0.28f, size.height * 0.82f, size.width * 0.08f, size.height * 0.5f)
+        }
+        drawPath(eye, color = Color.Black, style = Stroke(width = strokeWidth, cap = StrokeCap.Round))
+        drawCircle(
+            color = Color.Black,
+            radius = size.minDimension * 0.12f,
+            center = androidx.compose.ui.geometry.Offset(size.width * 0.5f, size.height * 0.5f)
+        )
+        if (hidden) {
+            drawLine(
+                color = Color.Black,
+                start = androidx.compose.ui.geometry.Offset(size.width * 0.18f, size.height * 0.18f),
+                end = androidx.compose.ui.geometry.Offset(size.width * 0.82f, size.height * 0.82f),
+                strokeWidth = strokeWidth,
+                cap = StrokeCap.Round
+            )
+        }
+    }
 }
 
 @Composable
@@ -1895,8 +2203,8 @@ private fun SmallTab(text: String, selected: Boolean, modifier: Modifier = Modif
             if (badgeCount > 0) {
                 Box(
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .offset(x = 5.dp, y = (-9).dp)
+                        .align(Alignment.Center)
+                        .offset(x = 42.dp, y = 0.dp)
                         .height(18.dp)
                         .widthIn(min = 18.dp)
                         .clip(CircleShape)
@@ -1962,10 +2270,38 @@ private fun HeaderAvatar(seed: String) {
 }
 
 @Composable
+private fun SelectedImageGrid(imageUris: List<Uri>, onRemove: (Uri) -> Unit) {
+    if (imageUris.isEmpty()) return
+    ImageGrid(
+        urls = imageUris.map { it.toString() },
+        action = { index ->
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xAA000000))
+                    .clickable { onRemove(imageUris[index]) },
+                contentAlignment = Alignment.Center
+            ) {
+                Text("x", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+    )
+}
+
+@Composable
 private fun WorkImage(url: String?) {
     if (url.isNullOrBlank()) return
+    val urls = remember(url) { parseImageUrls(url) }
+    if (urls.size > 1) {
+        ImageGrid(urls)
+        return
+    }
+    val imageUrl = urls.firstOrNull() ?: return
     val context = LocalContext.current
-    val fullUrl = remember(url) { resolveImageUrl(url) }
+    val fullUrl = remember(imageUrl) { resolveImageUrl(imageUrl) }
     var previewing by remember { mutableStateOf(false) }
     AsyncImage(
         model = ImageRequest.Builder(context)
@@ -1986,6 +2322,51 @@ private fun WorkImage(url: String?) {
     if (previewing) {
         FullImageDialog(fullUrl) { previewing = false }
     }
+}
+
+@Composable
+private fun ImageGrid(urls: List<String>, action: @Composable BoxScope.(Int) -> Unit = {}) {
+    val context = LocalContext.current
+    var previewUrl by remember { mutableStateOf<String?>(null) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        urls.take(4).chunked(2).forEach { row ->
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.fillMaxWidth()) {
+                row.forEach { rawUrl ->
+                    val fullUrl = remember(rawUrl) { resolveImageUrl(rawUrl) }
+                    Box(Modifier.weight(1f)) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(fullUrl)
+                                .addHeader("User-Agent", "Mozilla/5.0")
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(AcBorder)
+                                .clickable { previewUrl = fullUrl },
+                            contentScale = ContentScale.Crop,
+                        )
+                        action(urls.indexOf(rawUrl))
+                    }
+                }
+                if (row.size == 1 && urls.size > 1) {
+                    Spacer(Modifier.weight(1f))
+                }
+            }
+        }
+    }
+    previewUrl?.let { FullImageDialog(it) { previewUrl = null } }
+}
+
+private fun parseImageUrls(value: String): List<String> {
+    val cleaned = value.trim()
+    if (!cleaned.startsWith("[")) return listOf(cleaned).filter { it.isNotBlank() }
+    return runCatching {
+        Json.parseToJsonElement(cleaned).jsonArray.mapNotNull { it.jsonPrimitive.content.trim().takeIf(String::isNotBlank) }
+    }.getOrElse { listOf(cleaned).filter { it.isNotBlank() } }
 }
 
 private fun resolveImageUrl(url: String): String {

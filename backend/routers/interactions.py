@@ -6,12 +6,20 @@ from sqlalchemy.orm import Session, joinedload
 from backend.database import get_db
 from backend.deps import get_current_user, require_admin
 from backend.models import Comment, Favorite, Report, User, Work
-from backend.schemas.common import CommentOut, ReportOut, WorkOut
+from backend.schemas.common import CommentOut, ReportOut, UserOut, WorkOut
 from backend.schemas.requests import CommentCreateIn, ReportCreateIn
+from backend.services.ai_review import PUBLIC_WORK_STATUSES, REJECTED
 from backend.services.metrics import refresh_work_metrics
-from backend.utils.pagination import PageParams, page_params, paginate
+from backend.utils.pagination import PageParams, page_params, paginate, serialize_page
 
 router = APIRouter(prefix="/api", tags=["interactions"])
+
+
+def comment_out(comment: Comment, parent: Comment | None = None) -> dict:
+    data = CommentOut.model_validate(comment).model_dump(mode="json")
+    if parent and parent.user:
+        data["parent_user"] = UserOut.model_validate(parent.user).model_dump(mode="json")
+    return data
 
 
 @router.get("/works/{work_id}/comments")
@@ -56,9 +64,9 @@ def list_comments(
 
     items = [
         {
-            **CommentOut.model_validate(comment).model_dump(mode="json"),
+            **comment_out(comment),
             "replies": [
-                CommentOut.model_validate(reply).model_dump(mode="json")
+                comment_out(reply, comment)
                 for reply in replies_by_parent.get(comment.id, [])
             ],
         }
@@ -91,7 +99,7 @@ def get_comment(comment_id: int, db: Session = Depends(get_db)):
 @router.post("/works/{work_id}/comments", response_model=CommentOut)
 def create_comment(work_id: int, payload: CommentCreateIn, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
     work = db.query(Work).filter(Work.id == work_id).first()
-    if not work or work.status != "approved":
+    if not work or work.status not in PUBLIC_WORK_STATUSES:
         raise HTTPException(status_code=404, detail="作品不存在")
     if payload.parent_id is not None:
         parent = (
@@ -140,10 +148,10 @@ def my_favorites(
         db.query(Work)
         .join(Favorite, Favorite.work_id == Work.id)
         .options(joinedload(Work.author))
-        .filter(Favorite.user_id == user.id)
+        .filter(Favorite.user_id == user.id, Work.status.in_(PUBLIC_WORK_STATUSES))
         .order_by(Favorite.created_at.desc())
     )
-    return paginate(query, pp)
+    return serialize_page(paginate(query, pp), WorkOut)
 
 
 @router.post("/reports", response_model=ReportOut)
@@ -165,7 +173,7 @@ def list_reports(
     query = db.query(Report).options(joinedload(Report.reporter))
     if status:
         query = query.filter(Report.status == status)
-    return paginate(query.order_by(Report.created_at.desc()), pp)
+    return serialize_page(paginate(query.order_by(Report.created_at.desc()), pp), ReportOut)
 
 
 @router.post("/reports/{report_id}/handle")
@@ -179,7 +187,7 @@ def handle_report(report_id: int, approved: bool, db: Session = Depends(get_db),
     if approved and report.target_type == "work":
         target = db.query(Work).filter(Work.id == report.target_id).first()
         if target:
-            target.status = "rejected"
+            target.status = REJECTED
     if approved and report.target_type == "comment":
         target_comment = db.query(Comment).filter(Comment.id == report.target_id).first()
         if target_comment:

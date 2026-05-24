@@ -53,6 +53,7 @@ class Work(Base):
     author: Mapped[User] = relationship(back_populates="works")
     chapters: Mapped[list["Chapter"]] = relationship(back_populates="work", cascade="all, delete-orphan")
     comments: Mapped[list["Comment"]] = relationship(back_populates="work", cascade="all, delete-orphan")
+    collection_items: Mapped[list["CollectionItem"]] = relationship(back_populates="work", cascade="all, delete-orphan")
 
 
 class Chapter(Base):
@@ -119,6 +120,39 @@ class Follow(Base):
 
     follower: Mapped[User] = relationship(foreign_keys=[follower_id])
     followed: Mapped[User] = relationship(foreign_keys=[followed_id])
+
+
+class Collection(Base):
+    __tablename__ = "collections"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    title: Mapped[str] = mapped_column(String(120))
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cover_image: Mapped[str | None] = mapped_column(Text().with_variant(LONGTEXT, "mysql"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc, onupdate=now_utc)
+
+    user: Mapped[User] = relationship()
+    items: Mapped[list["CollectionItem"]] = relationship(
+        back_populates="collection",
+        cascade="all, delete-orphan",
+        order_by="CollectionItem.sort_order",
+    )
+
+
+class CollectionItem(Base):
+    __tablename__ = "collection_items"
+    __table_args__ = (UniqueConstraint("collection_id", "work_id", name="uq_collection_work"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    collection_id: Mapped[int] = mapped_column(ForeignKey("collections.id", ondelete="CASCADE"), index=True)
+    work_id: Mapped[int] = mapped_column(ForeignKey("works.id", ondelete="CASCADE"), index=True)
+    sort_order: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now_utc)
+
+    collection: Mapped[Collection] = relationship(back_populates="items")
+    work: Mapped[Work] = relationship(back_populates="collection_items")
 
 
 class Report(Base):

@@ -15,7 +15,9 @@ def test_list_users_admin_only(client, admin_headers, user_headers):
 
     res = client.get("/api/users", headers=admin_headers)
     assert res.status_code == 200
-    assert len(res.json()) >= 2  # admin + user
+    users = res.json()
+    assert len(users) >= 2  # admin + user
+    assert all("password_hash" not in user for user in users)
 
 
 def test_users_pagination(client, admin_headers):
@@ -23,6 +25,7 @@ def test_users_pagination(client, admin_headers):
     assert res["page"] == 1
     assert res["size"] == 1
     assert len(res["items"]) == 1
+    assert "password_hash" not in res["items"][0]
 
 
 def test_validation_returns_chinese_detail(client):

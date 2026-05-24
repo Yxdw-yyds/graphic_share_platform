@@ -231,6 +231,69 @@
       font-weight: 600;
     }
 
+    .comment-manage-cell {
+      padding: 8px 0;
+      border-bottom: none;
+    }
+
+    .comment-manage-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      background: #fff;
+      padding: 10px 12px;
+      margin: 8px 0;
+    }
+
+    .comment-manage-item.reply {
+      margin-left: 28px;
+      background: #f7f9f9;
+    }
+
+    .comment-manage-main {
+      min-width: 0;
+      flex: 1;
+    }
+
+    .comment-manage-head {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      font-size: 14px;
+      margin-bottom: 6px;
+    }
+
+    .comment-manage-author {
+      font-weight: 800;
+      color: var(--text-main);
+    }
+
+    .comment-manage-reply {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .comment-manage-text {
+      line-height: 1.6;
+      word-break: break-word;
+    }
+
+    .comment-manage-meta {
+      margin-top: 6px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+
+    .comment-manage-delete {
+      flex: 0 0 auto;
+      padding: 6px 12px !important;
+      font-size: 12px !important;
+      margin-top: 0 !important;
+    }
+
     .edit-modal {
       position: fixed;
       inset: 0;
@@ -288,6 +351,37 @@
       object-fit: contain;
     }
 
+    #collection-work-preview-body {
+      overflow: hidden;
+    }
+
+    #collection-work-preview-body .edit-preview-img {
+      display: block;
+      width: auto;
+      max-width: 100%;
+      max-height: min(58vh, 520px);
+      height: auto;
+      object-fit: contain;
+      border-radius: 12px;
+      margin: 12px 0;
+    }
+
+    .collection-preview-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin: 12px 0;
+    }
+
+    .collection-preview-grid .edit-preview-img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      height: auto !important;
+      max-height: none;
+      object-fit: cover;
+      margin: 0;
+    }
+
     .edit-actions {
       display: flex;
       justify-content: flex-end;
@@ -297,8 +391,8 @@
 
     .chapter-manager {
       display: grid;
-      grid-template-columns: 260px minmax(0, 1fr);
-      gap: 18px;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 12px;
       align-items: start;
     }
 
@@ -310,15 +404,56 @@
       overflow: hidden;
     }
 
+    .collection-create-form {
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(160px, 1fr) 120px;
+      column-gap: 14px;
+      row-gap: 8px;
+      align-items: end;
+      margin-bottom: 12px;
+      max-width: 560px;
+    }
+
+    .collection-create-form label {
+      margin-top: 0;
+      margin-bottom: 4px;
+      font-size: 13px;
+    }
+
+    .collection-create-form input {
+      height: 36px;
+      margin: 0;
+      padding: 0 10px;
+      border: 1px solid #d5dde8;
+      border-radius: 8px;
+      box-sizing: border-box;
+      outline: none;
+      width: 100%;
+    }
+
+    .collection-create-form input:focus {
+      border-color: #1da1f2;
+      box-shadow: 0 0 0 3px rgba(29, 161, 242, 0.12);
+    }
+
+    .collection-create-form button {
+      height: 36px;
+      margin: 0;
+      padding: 0 16px;
+      white-space: nowrap;
+      writing-mode: horizontal-tb;
+      min-width: 112px;
+    }
+
     .chapter-panel-title {
-      padding: 14px 16px;
+      padding: 10px 12px;
       font-weight: 800;
       border-bottom: 1px solid var(--border-color);
       background: #f7f9f9;
     }
 
     .chapter-work-item {
-      padding: 13px 16px;
+      padding: 10px 12px;
       border-bottom: 1px solid var(--border-color);
       cursor: pointer;
     }
@@ -340,7 +475,7 @@
     .chapter-small {
       color: var(--text-secondary);
       font-size: 12px;
-      margin-top: 5px;
+      margin-top: 3px;
     }
 
     .chapter-toolbar {
@@ -348,31 +483,42 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      padding: 14px 16px;
+      padding: 10px 12px;
       border-bottom: 1px solid var(--border-color);
       background: #fff;
     }
 
     .chapter-list {
-      padding: 14px;
+      padding: 8px 12px;
+    }
+
+    .collection-subtitle {
+      margin: 8px 12px 4px;
+      font-size: 15px;
+    }
+
+    .collection-empty {
+      padding: 18px 12px;
+      color: var(--text-secondary);
+      text-align: center;
     }
 
     .chapter-card {
       display: grid;
-      grid-template-columns: 46px minmax(0, 1fr) auto;
-      gap: 12px;
+      grid-template-columns: 32px minmax(0, 1fr) 118px;
+      gap: 10px;
       align-items: center;
-      padding: 14px;
+      padding: 8px 10px;
       border: 1px solid var(--border-color);
-      border-radius: 10px;
-      margin-bottom: 12px;
+      border-radius: 8px;
+      margin-bottom: 8px;
       background: #fff;
     }
 
     .chapter-index {
-      width: 36px;
-      height: 36px;
-      border-radius: 10px;
+      width: 26px;
+      height: 26px;
+      border-radius: 8px;
       background: #eff3f4;
       display: flex;
       align-items: center;
@@ -383,13 +529,33 @@
 
     .chapter-card-actions {
       display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
+      gap: 6px;
+      flex-wrap: nowrap;
       justify-content: flex-end;
+    }
+
+    .chapter-card-actions .acf-btn {
+      padding: 5px 9px;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .collection-picker-card {
+      grid-template-columns: minmax(0, 1fr) 86px;
+    }
+
+    .collection-title-full {
+      white-space: normal !important;
+      overflow: visible !important;
+      text-overflow: clip !important;
+      line-height: 1.35;
     }
 
     @media (max-width: 900px) {
       .chapter-manager {
+        grid-template-columns: 1fr;
+      }
+      .collection-create-form {
         grid-template-columns: 1fr;
       }
     }
@@ -413,7 +579,7 @@
       <ul class="menu-list">
         <li class="menu-item active" onclick="showSection('info', this)">个人信息</li>
         <li class="menu-item" onclick="showSection('posts', this)">个人动态</li>
-        <li class="menu-item" onclick="showSection('chapters', this)">章节管理</li>
+        <li class="menu-item" onclick="showSection('chapters', this)">合集和系列</li>
         <li class="menu-item" onclick="showSection('follows', this)">我的关注</li>
         <li class="menu-item" onclick="showSection('comments', this)">评论管理</li>
         <li class="menu-item" onclick="showSection('delete', this)" style="color: #e0245e;">账户注销</li>
@@ -498,21 +664,35 @@
       </div>
 
       <div id="chapters" class="section">
-        <h3>章节管理</h3>
+        <h3>合集和系列</h3>
+        <p style="color: var(--text-secondary); margin-top:-8px;">自建主题，把已有动态按顺序放进合集里。</p>
+        <form class="collection-create-form" onsubmit="event.preventDefault(); createCollection();">
+          <div>
+            <label>合集标题</label>
+            <input id="collection-title-input" placeholder="例如：旅行日记合集">
+          </div>
+          <div>
+            <label>简介</label>
+            <input id="collection-desc-input" placeholder="可选">
+          </div>
+          <button type="submit">新建合集</button>
+        </form>
         <div class="chapter-manager">
           <div class="chapter-work-list">
-            <div class="chapter-panel-title">选择稿件</div>
-            <div id="chapter-work-list"></div>
+            <div class="chapter-panel-title">我的合集</div>
+            <div id="collection-list"></div>
           </div>
           <div class="chapter-editor-shell">
             <div class="chapter-toolbar">
               <div>
-                <strong id="chapter-current-title">请选择一个稿件</strong>
-                <div class="chapter-small" id="chapter-current-meta">章节会随稿件重新进入待审核</div>
+                <strong id="collection-current-title">请选择一个合集</strong>
+                <div class="chapter-small" id="collection-current-meta">选择已有动态加入合集</div>
               </div>
-              <button onclick="openChapterModal()">新增章节</button>
+              <button class="secondary" onclick="deleteSelectedCollection()">删除合集</button>
             </div>
-            <div id="chapters-body" class="chapter-list"></div>
+            <div id="collection-items-body" class="chapter-list"></div>
+            <h4 class="collection-subtitle">选择已有动态加入</h4>
+            <div id="collection-work-picker" class="chapter-list"></div>
           </div>
         </div>
       </div>
@@ -601,6 +781,16 @@
     </div>
   </div>
 
+  <div id="collection-work-preview-modal" class="edit-modal">
+    <div class="edit-panel">
+      <div class="edit-panel-header">
+        <h3 id="collection-work-preview-title">查看动态</h3>
+        <button type="button" class="secondary" onclick="closeCollectionWorkPreview()" style="margin-top:0;">关闭</button>
+      </div>
+      <div id="collection-work-preview-body"></div>
+    </div>
+  </div>
+
   <script src="assets/components.js"></script>
   <script src="api.js"></script>
   <script>
@@ -658,8 +848,8 @@
       }
     }
 
-    const STATUS_LABEL = { pending: '待审核', approved: '已发布', rejected: '已驳回' };
-    const STATUS_BADGE = { pending: 'acf-badge-pending', approved: 'acf-badge-approved', rejected: 'acf-badge-rejected' };
+    const STATUS_LABEL = { pending: '待人工审核', ai_approved: 'AI初审通过', approved: '已发布', rejected: '已驳回' };
+    const STATUS_BADGE = { pending: 'acf-badge-pending', ai_approved: 'acf-badge-pending', approved: 'acf-badge-approved', rejected: 'acf-badge-rejected' };
     let myWorksCache = [];
     let editingWorkId = null;
     let editingCoverImage = null;
@@ -676,7 +866,11 @@
             <td>${w.title}</td>
             <td>${w.category || '-'}</td>
             <td>${new Date(w.created_at).toLocaleString()}</td>
-            <td><span class="acf-badge ${STATUS_BADGE[w.status] || 'acf-badge-info'}">${STATUS_LABEL[w.status] || w.status}</span></td>
+            <td>
+              <span class="acf-badge ${STATUS_BADGE[w.status] || 'acf-badge-info'}">${STATUS_LABEL[w.status] || w.status}</span>
+              ${w.status === 'rejected' && w.review_note ? `<div class="chapter-small">原因：${w.review_note}</div>` : ''}
+              ${w.status === 'ai_approved' ? '<div class="chapter-small">已临时发布，等待管理员终审</div>' : ''}
+            </td>
             <td>
               <button class="acf-btn acf-btn-sm" onclick="editMyWork(${w.id})">编辑</button>
               <button class="acf-btn acf-btn-sm acf-btn-danger" onclick="deleteMyWork(${w.id})">删除</button>
@@ -777,195 +971,210 @@
       } catch {}
     }
 
-    let chapterWorksCache = [];
-    let currentChapterWorkId = null;
-    let currentChapters = [];
-    let editingChapterId = null;
-    let editingChapterImage = null;
+    let collectionWorksCache = [];
+    let collectionsCache = [];
+    let currentCollectionId = null;
 
     async function loadChapterWorkOptions() {
-      const list = document.getElementById('chapter-work-list');
-      const body = document.getElementById('chapters-body');
+      await loadCollections();
+    }
+
+    async function loadCollections() {
+      const list = document.getElementById('collection-list');
+      const body = document.getElementById('collection-items-body');
+      const picker = document.getElementById('collection-work-picker');
       list.innerHTML = '<div class="chapter-work-item">加载中...</div>';
-      body.innerHTML = acf.emptyState({ title: '正在加载章节', description: '请稍候' });
+      body.innerHTML = acf.emptyState({ title: '正在加载合集', description: '请稍候' });
+      picker.innerHTML = '';
       try {
-        const result = await apiFetch('/api/users/me/works');
-        chapterWorksCache = Array.isArray(result) ? result : (result.items || []);
-        if (!chapterWorksCache.length) {
-          list.innerHTML = '<div class="chapter-work-item">暂无稿件</div>';
-          body.innerHTML = acf.emptyState({ title: '暂无可管理稿件', description: '发布图文后可在这里管理章节' });
-          document.getElementById('chapter-current-title').textContent = '暂无稿件';
-          return;
+        const worksResult = await apiFetch('/api/users/me/works');
+        collectionWorksCache = Array.isArray(worksResult) ? worksResult : (worksResult.items || []);
+        collectionsCache = await apiFetch('/api/users/me/collections');
+        if (!currentCollectionId || !collectionsCache.some(c => Number(c.id) === Number(currentCollectionId))) {
+          currentCollectionId = collectionsCache[0]?.id || null;
         }
-        if (!currentChapterWorkId || !chapterWorksCache.some(w => Number(w.id) === Number(currentChapterWorkId))) {
-          currentChapterWorkId = chapterWorksCache[0].id;
-        }
-        renderChapterWorkList();
-        await loadChaptersForSelectedWork(currentChapterWorkId);
+        renderCollectionList();
+        renderSelectedCollection();
       } catch (err) {
         list.innerHTML = `<div class="chapter-work-item">${err.message}</div>`;
         body.innerHTML = acf.emptyState({ title: '加载失败', description: err.message });
       }
     }
 
-    function renderChapterWorkList() {
-      const list = document.getElementById('chapter-work-list');
-      list.innerHTML = chapterWorksCache.map(w => `
-        <div class="chapter-work-item ${Number(w.id) === Number(currentChapterWorkId) ? 'active' : ''}" onclick="selectChapterWork(${w.id})">
-          <strong>${w.title}</strong>
-          <div class="chapter-small">ID ${w.id} · ${w.category || '-'} · ${STATUS_LABEL[w.status] || w.status}</div>
-        </div>
-      `).join('');
-    }
-
-    async function selectChapterWork(workId) {
-      currentChapterWorkId = workId;
-      renderChapterWorkList();
-      await loadChaptersForSelectedWork(workId);
-    }
-
-    async function loadChaptersForSelectedWork(workId = currentChapterWorkId) {
-      const body = document.getElementById('chapters-body');
-      const work = chapterWorksCache.find(w => Number(w.id) === Number(workId));
-      if (!workId || !work) {
-        body.innerHTML = acf.emptyState({ title: '请选择稿件', description: '左侧选择一个稿件后管理章节' });
-        return;
-      }
-      document.getElementById('chapter-current-title').textContent = work.title;
-      document.getElementById('chapter-current-meta').textContent = `稿件ID ${work.id} · ${work.category || '-'} · ${STATUS_LABEL[work.status] || work.status}`;
-      body.innerHTML = acf.emptyState({ title: '正在加载章节', description: '请稍候' });
+    async function createCollection() {
+      const title = document.getElementById('collection-title-input').value.trim();
+      const description = document.getElementById('collection-desc-input').value.trim();
+      if (!title) return acf.toast('请输入合集标题', 'warning');
       try {
-        currentChapters = await apiFetch(`/api/works/${workId}/chapters`);
-        renderChapterCards();
-      } catch (err) {
-        body.innerHTML = acf.emptyState({ title: '章节加载失败', description: err.message });
-      }
-    }
-
-    function renderChapterCards() {
-      const body = document.getElementById('chapters-body');
-      if (!currentChapters.length) {
-        body.innerHTML = acf.emptyState({ title: '暂无章节', description: '点击右上角新增章节' });
-        return;
-      }
-      body.innerHTML = currentChapters.map((ch, index) => `
-        <div class="chapter-card">
-          <div class="chapter-index">P${index + 1}</div>
-          <div>
-            <strong>${ch.title}</strong>
-            <div class="chapter-small">章节ID ${ch.id} · 排序 ${ch.sort_order} · ${STATUS_LABEL[ch.status] || ch.status}</div>
-            <div class="chapter-small">${(ch.content || '').slice(0, 70)}${(ch.content || '').length > 70 ? '...' : ''}</div>
-          </div>
-          <div class="chapter-card-actions">
-            <button class="acf-btn acf-btn-sm" onclick="moveChapter(${index}, -1)" ${index === 0 ? 'disabled' : ''}>上移</button>
-            <button class="acf-btn acf-btn-sm" onclick="moveChapter(${index}, 1)" ${index === currentChapters.length - 1 ? 'disabled' : ''}>下移</button>
-            <button class="acf-btn acf-btn-sm" onclick="openChapterModal(${ch.id})">编辑</button>
-            <button class="acf-btn acf-btn-sm acf-btn-danger" onclick="deleteChapter(${ch.id})">删除</button>
-          </div>
-        </div>
-      `).join('');
-    }
-
-    function openChapterModal(chapterId = null) {
-      if (!currentChapterWorkId) return acf.toast('请先选择稿件', 'warning');
-      const chapter = chapterId ? currentChapters.find(ch => Number(ch.id) === Number(chapterId)) : null;
-      editingChapterId = chapter ? chapter.id : null;
-      editingChapterImage = chapter?.image_url || null;
-      document.getElementById('chapter-modal-title').textContent = chapter ? '编辑章节' : '新增章节';
-      document.getElementById('chapter-title-input').value = chapter?.title || '';
-      document.getElementById('chapter-sort-input').value = chapter?.sort_order || (currentChapters.length + 1);
-      document.getElementById('chapter-content-input').value = chapter?.content || '';
-      document.getElementById('chapter-image-input').value = '';
-      renderChapterPreview(editingChapterImage);
-      document.getElementById('chapter-modal').style.display = 'flex';
-    }
-
-    function closeChapterModal() {
-      document.getElementById('chapter-modal').style.display = 'none';
-      editingChapterId = null;
-      editingChapterImage = null;
-    }
-
-    function renderChapterPreview(url) {
-      const preview = document.getElementById('chapter-preview');
-      if (url) {
-        preview.innerHTML = `<img src="${normalizeImageUrl(url)}" alt="章节配图">`;
-      } else {
-        preview.innerHTML = '<span style="color: var(--text-secondary); font-size: 14px;">图片预览区域</span>';
-      }
-    }
-
-    function previewChapterImage(event) {
-      const file = event.target.files[0];
-      if (!file) return renderChapterPreview(editingChapterImage);
-      const reader = new FileReader();
-      reader.onload = e => {
-        document.getElementById('chapter-preview').innerHTML = `<img src="${e.target.result}" alt="章节配图">`;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    async function submitChapterForm(event) {
-      event.preventDefault();
-      const title = document.getElementById('chapter-title-input').value.trim();
-      const content = document.getElementById('chapter-content-input').value.trim();
-      const sort_order = Number(document.getElementById('chapter-sort-input').value || currentChapters.length + 1);
-      const file = document.getElementById('chapter-image-input').files[0];
-      if (!title) return acf.toast('请输入章节标题', 'warning');
-      if (!content) return acf.toast('请输入章节正文', 'warning');
-      try {
-        let image_url = editingChapterImage;
-        if (file) {
-          const formData = new FormData();
-          formData.append('file', file);
-          const uploaded = await apiFetch('/api/works/upload-image', { method: 'POST', body: formData });
-          image_url = uploaded.url;
-        }
-        const payload = { title, content, image_url, sort_order };
-        if (editingChapterId) {
-          await apiFetch(`/api/works/chapters/${editingChapterId}`, { method: 'PATCH', body: JSON.stringify(payload) });
-          acf.toast('章节已更新，等待审核', 'success');
-        } else {
-          await apiFetch(`/api/works/${currentChapterWorkId}/chapters`, { method: 'POST', body: JSON.stringify(payload) });
-          acf.toast('章节已新增，等待审核', 'success');
-        }
-        closeChapterModal();
-        await loadChaptersForSelectedWork();
+        const created = await apiFetch('/api/users/me/collections', {
+          method: 'POST',
+          body: JSON.stringify({ title, description: description || null })
+        });
+        currentCollectionId = created.id;
+        document.getElementById('collection-title-input').value = '';
+        document.getElementById('collection-desc-input').value = '';
+        acf.toast('合集已创建', 'success');
+        await loadCollections();
       } catch (err) {
         acf.toast(err.message, 'error');
       }
     }
 
-    async function moveChapter(index, direction) {
-      const targetIndex = index + direction;
-      if (targetIndex < 0 || targetIndex >= currentChapters.length) return;
-      const current = currentChapters[index];
-      const target = currentChapters[targetIndex];
+    function renderCollectionList() {
+      const list = document.getElementById('collection-list');
+      if (!collectionsCache.length) {
+        list.innerHTML = '<div class="chapter-work-item">暂无合集</div>';
+        return;
+      }
+      list.innerHTML = collectionsCache.map(c => `
+        <div class="chapter-work-item ${Number(c.id) === Number(currentCollectionId) ? 'active' : ''}" onclick="selectCollection(${c.id})">
+          <strong>${c.title}</strong>
+          <div class="chapter-small">${(c.items || []).length} 个内容 · ${new Date(c.updated_at).toLocaleDateString()}</div>
+        </div>
+      `).join('');
+    }
+
+    function selectCollection(id) {
+      currentCollectionId = id;
+      renderCollectionList();
+      renderSelectedCollection();
+    }
+
+    function renderSelectedCollection() {
+      const body = document.getElementById('collection-items-body');
+      const picker = document.getElementById('collection-work-picker');
+      const collection = collectionsCache.find(c => Number(c.id) === Number(currentCollectionId));
+      if (!collection) {
+        document.getElementById('collection-current-title').textContent = '请选择一个合集';
+        document.getElementById('collection-current-meta').textContent = '新建合集后可选择动态加入';
+        body.innerHTML = '<div class="collection-empty">先创建一个合集主题</div>';
+        picker.innerHTML = '';
+        return;
+      }
+      document.getElementById('collection-current-title').textContent = collection.title;
+      document.getElementById('collection-current-meta').textContent = collection.description || `${(collection.items || []).length} 个内容`;
+      const items = [...(collection.items || [])].sort((a, b) => a.sort_order - b.sort_order);
+      body.innerHTML = items.length ? items.map((item, index) => {
+        const work = item.work || {};
+        return `
+          <div class="chapter-card">
+            <div class="chapter-index">${index + 1}</div>
+            <div>
+              <strong class="collection-title-full">${work.title || `动态 ${item.work_id}`}</strong>
+              <div class="chapter-small">动态ID ${item.work_id} · ${work.category || '-'} · 排序 ${item.sort_order}</div>
+            </div>
+            <div class="chapter-card-actions">
+              <button class="acf-btn acf-btn-sm" onclick="openCollectionWorkPreview(${item.work_id})">查看</button>
+              <button class="acf-btn acf-btn-sm" onclick="moveCollectionItem(${item.id}, ${Math.max(1, item.sort_order - 1)})">上移</button>
+              <button class="acf-btn acf-btn-sm" onclick="moveCollectionItem(${item.id}, ${item.sort_order + 1})">下移</button>
+              <button class="acf-btn acf-btn-sm acf-btn-danger" onclick="removeCollectionItem(${item.id})">移除</button>
+            </div>
+          </div>
+        `;
+      }).join('') : '<div class="collection-empty">暂无内容，从下方选择动态加入合集</div>';
+
+      const addedIds = new Set(items.map(item => Number(item.work_id)));
+      picker.innerHTML = collectionWorksCache.length ? collectionWorksCache.map(work => {
+        const added = addedIds.has(Number(work.id));
+        return `
+          <div class="chapter-card collection-picker-card">
+            <div>
+              <strong class="collection-title-full">${work.title}</strong>
+              <div class="chapter-small">动态ID ${work.id} · ${work.category || '-'} · ${STATUS_LABEL[work.status] || work.status}</div>
+            </div>
+            <div class="chapter-card-actions">
+              <button class="acf-btn acf-btn-sm" onclick="openCollectionWorkPreview(${work.id})">查看</button>
+              <button class="acf-btn acf-btn-sm" ${added ? 'disabled' : ''} onclick="addWorkToCollection(${work.id})">${added ? '已加入' : '加入合集'}</button>
+            </div>
+          </div>
+        `;
+      }).join('') : '<div class="collection-empty">暂无动态，先发布动态后再加入合集</div>';
+    }
+
+    async function addWorkToCollection(workId) {
+      const collection = collectionsCache.find(c => Number(c.id) === Number(currentCollectionId));
+      if (!collection) return acf.toast('请先选择合集', 'warning');
       try {
-        await Promise.all([
-          apiFetch(`/api/works/chapters/${current.id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ sort_order: target.sort_order })
-          }),
-          apiFetch(`/api/works/chapters/${target.id}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ sort_order: current.sort_order })
-          })
-        ]);
-        acf.toast('排序已更新，等待审核', 'success');
-        await loadChaptersForSelectedWork();
+        await apiFetch(`/api/users/me/collections/${collection.id}/items`, {
+          method: 'POST',
+          body: JSON.stringify({ work_id: workId, sort_order: (collection.items || []).length + 1 })
+        });
+        acf.toast('已加入合集', 'success');
+        await loadCollections();
       } catch (err) {
         acf.toast(err.message, 'error');
       }
     }
 
-    async function deleteChapter(id) {
-      if (!confirm('确定删除该章节吗？')) return;
+    function closeCollectionWorkPreview() {
+      document.getElementById('collection-work-preview-modal').style.display = 'none';
+      document.getElementById('collection-work-preview-body').innerHTML = '';
+    }
+
+    function renderCollectionPreviewImages(work) {
+      const images = normalizeWorkImages(work);
+      if (!images.length) return '';
+      if (images.length === 1) {
+        return `<img class="edit-preview-img" src="${images[0]}" alt="动态图片" ${lightboxImageAttrs(images, 0)}>`;
+      }
+      return `<div class="collection-preview-grid">
+        ${images.map((src, index) => `<img class="edit-preview-img" src="${src}" alt="动态图片" ${lightboxImageAttrs(images, index)}>`).join('')}
+      </div>`;
+    }
+
+    async function openCollectionWorkPreview(workId) {
+      const modal = document.getElementById('collection-work-preview-modal');
+      const body = document.getElementById('collection-work-preview-body');
+      modal.style.display = 'flex';
+      body.innerHTML = '<div class="collection-empty">加载中...</div>';
       try {
-        await apiFetch(`/api/works/chapters/${id}`, { method: 'DELETE' });
-        acf.toast('章节已删除，作品等待重新审核', 'success');
-        loadChaptersForSelectedWork();
-      } catch {}
+        const work = await apiFetch(`/api/works/${workId}`);
+        document.getElementById('collection-work-preview-title').textContent = work.title || `动态 ${work.id}`;
+        body.innerHTML = `
+          <div class="chapter-small">#${work.category || '-'} · ${STATUS_LABEL[work.status] || work.status} · ${new Date(work.updated_at || work.created_at).toLocaleString()}</div>
+          <h3 style="margin:12px 0 8px;">${work.title || ''}</h3>
+          <div style="white-space:pre-wrap;line-height:1.7;">${work.summary || ''}</div>
+          ${renderCollectionPreviewImages(work)}
+          <div class="chapter-small">浏览 ${work.view_count || 0} · 点赞 ${work.like_count || 0} · 收藏 ${work.favorite_count || 0} · 评论 ${work.comment_count || 0}</div>
+        `;
+      } catch (err) {
+        body.innerHTML = `<div class="collection-empty">${err.message}</div>`;
+      }
+    }
+
+    async function moveCollectionItem(itemId, sortOrder) {
+      try {
+        await apiFetch(`/api/users/me/collection-items/${itemId}`, {
+          method: 'PATCH',
+          body: JSON.stringify({ sort_order: sortOrder })
+        });
+        await loadCollections();
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
+    }
+
+    async function removeCollectionItem(itemId) {
+      try {
+        await apiFetch(`/api/users/me/collection-items/${itemId}`, { method: 'DELETE' });
+        acf.toast('已移出合集', 'success');
+        await loadCollections();
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
+    }
+
+    async function deleteSelectedCollection() {
+      if (!currentCollectionId) return acf.toast('请先选择合集', 'warning');
+      if (!confirm('确定删除这个合集吗？合集内动态不会被删除。')) return;
+      try {
+        await apiFetch(`/api/users/me/collections/${currentCollectionId}`, { method: 'DELETE' });
+        currentCollectionId = null;
+        acf.toast('合集已删除', 'success');
+        await loadCollections();
+      } catch (err) {
+        acf.toast(err.message, 'error');
+      }
     }
 
     async function loadMyFollows() {
@@ -1012,7 +1221,8 @@
         <th>操作</th>
       `;
       try {
-        const works = await apiFetch('/api/users/me/works');
+        const result = await apiFetch('/api/users/me/works');
+        const works = Array.isArray(result) ? result : (result.items || []);
         tbody.innerHTML = works.length ? works.map(w => `
           <tr>
             <td>${w.id}</td>
@@ -1032,27 +1242,46 @@
       document.getElementById('comment-back-btn').style.display = '';
       document.getElementById('comment-work-title').textContent = `当前帖子：${title}`;
       document.getElementById('comments-table-head').innerHTML = `
-        <th>评论ID</th>
-        <th>评论人</th>
-        <th>内容</th>
-        <th>时间</th>
-        <th>操作</th>
+        <th>评论详情</th>
       `;
-      tbody.innerHTML = '<tr><td colspan="5">加载中...</td></tr>';
+      tbody.innerHTML = '<tr><td>加载中...</td></tr>';
       try {
         const comments = await apiFetch(`/api/works/${workId}/all-comments`);
-        tbody.innerHTML = comments.length ? comments.map(c => `
-          <tr>
-            <td>${c.id}</td>
-            <td>${c.user?.nickname || c.user?.account || '-'}</td>
-            <td>${c.content}</td>
-            <td>${new Date(c.created_at).toLocaleString()}</td>
-            <td><button class="delete" style="padding: 6px 12px; font-size: 12px;" onclick="deleteComment(${c.id}, ${workId}, '${String(title).replace(/'/g, "\\'")}')">删除</button></td>
-          </tr>
-        `).join('') : '<tr><td colspan="5">该帖子暂无评论</td></tr>';
+        const topComments = comments.filter(c => !c.parent_id);
+        tbody.innerHTML = comments.length
+          ? `<tr><td class="comment-manage-cell">${topComments.map(c => renderManagedComment(c, workId, title, comments)).join('')}</td></tr>`
+          : '<tr><td>该帖子暂无评论</td></tr>';
       } catch (err) {
-        tbody.innerHTML = `<tr><td colspan="5">${err.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td>${err.message}</td></tr>`;
       }
+    }
+
+    function commentUserName(user, fallbackId) {
+      return user?.nickname || user?.account || `用户 ${fallbackId || '-'}`;
+    }
+
+    function renderManagedComment(c, workId, title, allComments = []) {
+      const isReply = Boolean(c.parent_id);
+      const author = commentUserName(c.user, c.user_id);
+      const parentName = c.parent_user ? commentUserName(c.parent_user, c.parent_user.id) : '';
+      const safeTitle = String(title).replace(/'/g, "\\'");
+      const replies = Array.isArray(c.replies) && c.replies.length
+        ? c.replies
+        : allComments.filter(item => item.parent_id === c.id);
+      return `
+        <div class="comment-manage-item ${isReply ? 'reply' : ''}">
+          <div class="comment-manage-main">
+            <div class="comment-manage-head">
+              <span class="comment-manage-author">${author}</span>
+              ${parentName ? `<span class="comment-manage-reply">回复 @${parentName}</span>` : ''}
+            </div>
+            <div class="comment-manage-text">${c.content || ''}</div>
+            <div class="comment-manage-meta">ID ${c.id} · ${new Date(c.created_at).toLocaleString()} · ${c.status}</div>
+          </div>
+          <button class="delete comment-manage-delete" onclick="deleteComment(${c.id}, ${workId}, '${safeTitle}')">删除</button>
+        </div>
+        ${replies.map(reply => renderManagedComment(reply, workId, title, allComments)).join('')}
+      `;
     }
 
     async function deleteComment(id, workId, title) {

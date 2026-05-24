@@ -227,6 +227,22 @@
       width: 100%;
       border-radius: 12px;
       border: 1px solid var(--border-color);
+      cursor: zoom-in;
+    }
+
+    .post-image-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .post-image-grid img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      cursor: zoom-in;
     }
   </style>
 </head>
@@ -288,8 +304,19 @@
             <span class="user-name">${post.user}</span>
           </div>
           <p class="post-text">${post.text}</p>
-          ${post.img ? `<img class="post-image" src="${post.img}" />` : ''}
+          ${renderPostImages(post)}
         </article>`;
+    }
+
+    function renderPostImages(post) {
+      const images = Array.isArray(post.images) && post.images.length
+        ? post.images
+        : (post.img ? [post.img] : []);
+      if (!images.length) return '';
+      if (images.length === 1) {
+        return `<img class="post-image" src="${images[0]}" ${lightboxImageAttrs(images, 0)} />`;
+      }
+      return `<div class="post-image-grid">${images.map((src, index) => `<img src="${src}" ${lightboxImageAttrs(images, index)} />`).join('')}</div>`;
     }
 
     async function filterPosts() {

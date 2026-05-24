@@ -8,6 +8,10 @@ import com.platform.android.data.ApiService
 import com.platform.android.data.ChapterCreateRequest
 import com.platform.android.data.ChapterDto
 import com.platform.android.data.ChapterUpdateRequest
+import com.platform.android.data.CollectionCreateRequest
+import com.platform.android.data.CollectionDto
+import com.platform.android.data.CollectionItemCreateRequest
+import com.platform.android.data.CollectionItemUpdateRequest
 import com.platform.android.data.CommentCreateRequest
 import com.platform.android.data.CommentDto
 import com.platform.android.data.FollowDto
@@ -16,6 +20,7 @@ import com.platform.android.data.LoginPasswordRequest
 import com.platform.android.data.RegisterRequest
 import com.platform.android.data.ReportCreateRequest
 import com.platform.android.data.ReportDto
+import com.platform.android.data.ReportTargetDetailDto
 import com.platform.android.data.ResetPasswordRequest
 import com.platform.android.data.ReviewRequest
 import com.platform.android.data.SendCodeRequest
@@ -34,6 +39,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
 import okhttp3.RequestBody.Companion.toRequestBody
@@ -45,17 +52,24 @@ data class PlatformUiState(
     val works: List<WorkDto> = emptyList(),
     val trendingTopics: List<TrendingTopicDto> = emptyList(),
     val currentWork: WorkDto? = null,
+    val currentWorkCollections: List<CollectionDto> = emptyList(),
+    val publicProfile: UserDto? = null,
+    val publicWorks: List<WorkDto> = emptyList(),
+    val publicCollections: List<CollectionDto> = emptyList(),
+    val publicCollection: CollectionDto? = null,
     val profile: UserDto? = null,
     val chapters: List<ChapterDto> = emptyList(),
     val comments: List<CommentDto> = emptyList(),
     val myWorks: List<WorkDto> = emptyList(),
     val myComments: List<CommentDto> = emptyList(),
+    val collections: List<CollectionDto> = emptyList(),
     val follows: List<FollowDto> = emptyList(),
     val followedAuthorIds: Set<Int> = emptySet(),
     val favorites: List<WorkDto> = emptyList(),
     val stats: StatsDto? = null,
     val pendingWorks: List<WorkDto> = emptyList(),
     val reports: List<ReportDto> = emptyList(),
+    val reportTargetDetails: Map<String, ReportTargetDetailDto> = emptyMap(),
     val users: List<UserDto> = emptyList(),
 )
 
@@ -74,7 +88,9 @@ class PlatformViewModel(
 
     fun clearMessage() = _state.update { it.copy(message = null) }
 
-    fun closeWorkDetail() = _state.update { it.copy(currentWork = null, chapters = emptyList(), comments = emptyList()) }
+    fun closeWorkDetail() = _state.update { it.copy(currentWork = null, currentWorkCollections = emptyList(), chapters = emptyList(), comments = emptyList()) }
+
+    fun closePublicProfile() = _state.update { it.copy(publicProfile = null, publicWorks = emptyList(), publicCollections = emptyList(), publicCollection = null) }
 
     fun login(account: String, password: String) = loginWithRole(account, password, expectedAdmin = false)
 
@@ -145,6 +161,51 @@ class PlatformViewModel(
         openWorkInternal(id)
     }
 
+    fun openPublicProfile(userId: Int) = run(null) {
+        val profile = api.user(userId)
+        val works = api.userWorks(userId).items
+        val collections = api.userCollections(userId)
+        _state.update {
+            it.copy(
+                publicProfile = profile,
+                publicWorks = works,
+                publicCollections = collections,
+                publicCollection = null,
+                currentWork = null,
+                currentWorkCollections = emptyList(),
+                comments = emptyList(),
+                chapters = emptyList(),
+            )
+        }
+    }
+
+    fun openPublicCollection(collectionId: Int) = run(null) {
+        val current = state.value
+        val collection = current.publicCollections.firstOrNull { it.id == collectionId }
+            ?: current.currentWorkCollections.firstOrNull { it.id == collectionId }
+        if (collection != null) {
+            val ownerId = collection.userId
+            val profile = current.publicProfile?.takeIf { it.id == ownerId } ?: api.user(ownerId)
+            val collections = if (current.publicCollections.any { it.userId == ownerId }) current.publicCollections else api.userCollections(ownerId)
+            _state.update {
+                it.copy(
+                    publicProfile = profile,
+                    publicWorks = collections.flatMap { c -> c.items.mapNotNull { item -> item.work } },
+                    publicCollections = collections,
+                    publicCollection = collections.firstOrNull { c -> c.id == collectionId } ?: collection,
+                    currentWork = null,
+                    currentWorkCollections = emptyList(),
+                    comments = emptyList(),
+                    chapters = emptyList(),
+                )
+            }
+        }
+    }
+
+    fun openWorkCommentsForManage(id: Int) = run(null) {
+        openWorkCommentsForManageInternal(id)
+    }
+
     fun like(id: Int) = run(null) {
         val res = api.like(id)
         _state.update { it.copy(message = if (res.liked) "已点赞" else "已取消点赞") }
@@ -185,6 +246,12 @@ class PlatformViewModel(
         else loadMineInternal()
     }
 
+    fun deleteManagedComment(id: Int, workId: Int) = run("评论已删除") {
+        api.deleteComment(id)
+        openWorkCommentsForManageInternal(workId)
+        loadMineInternal()
+    }
+
     fun report(targetType: String, targetId: Int, reason: String, description: String?) = run("举报已提交") {
         api.report(ReportCreateRequest(targetType, targetId, reason, description?.ifBlank { null }))
     }
@@ -193,9 +260,11 @@ class PlatformViewModel(
         val work = api.work(id)
         val chapters = api.chapters(id)
         val comments = api.comments(id, size = 100).items
+        val collections = api.workCollections(id)
         _state.update {
             it.copy(
                 currentWork = work,
+                currentWorkCollections = collections,
                 chapters = chapters,
                 comments = comments,
                 works = it.works.map { item -> if (item.id == work.id) work else item },
@@ -205,7 +274,19 @@ class PlatformViewModel(
         }
     }
 
-    fun publish(title: String, summary: String, category: String, content: String) = run("作品已提交审核") {
+    private suspend fun openWorkCommentsForManageInternal(id: Int) {
+        val work = api.work(id)
+        val comments = api.allComments(id)
+        _state.update {
+            it.copy(
+                currentWork = work,
+                comments = comments,
+                myWorks = it.myWorks.map { item -> if (item.id == work.id) work else item },
+            )
+        }
+    }
+
+    fun publish(title: String, summary: String, category: String, content: String) = run("作品已提交，AI初审通过后会先临时发布") {
         api.createWork(
             WorkCreateRequest(
                 title = title,
@@ -218,7 +299,7 @@ class PlatformViewModel(
     }
 
     fun publishWithImage(context: Context, imageUri: Uri?, title: String?, summary: String, category: String, content: String) =
-        run("作品已提交审核") {
+        run("作品已提交，AI初审通过后会先临时发布") {
             val cover = imageUri?.let { uploadImage(context, it) }
             val finalTitle = if (title.isNullOrBlank()) {
                 category.removePrefix("#").ifBlank { "图文动态" }
@@ -235,7 +316,26 @@ class PlatformViewModel(
             refreshHomeInternal()
         }
 
-    fun updateWork(id: Int, title: String, summary: String, category: String) = run("作品已更新，等待审核") {
+    fun publishWithImages(context: Context, imageUris: List<Uri>, title: String?, summary: String, category: String, content: String) =
+        run("作品已提交，AI初审通过后会先临时发布") {
+            val urls = uploadImages(context, imageUris.take(4))
+            val cover = urls.takeIf { it.isNotEmpty() }?.let { Json.encodeToString(it) }
+            val finalTitle = if (title.isNullOrBlank()) {
+                category.removePrefix("#").ifBlank { "图文动态" }
+            } else title
+            api.createWork(
+                WorkCreateRequest(
+                    title = finalTitle,
+                    summary = summary.ifBlank { null },
+                    category = category.ifBlank { "生活分享" },
+                    coverImage = cover,
+                    firstChapterContent = content,
+                )
+            )
+            refreshHomeInternal()
+        }
+
+    fun updateWork(id: Int, title: String, summary: String, category: String) = run("作品已更新，AI初审通过后会重新临时发布") {
         api.updateWork(id, WorkUpdateRequest(title = title, summary = summary, category = category))
         loadMineInternal()
         refreshHomeInternal()
@@ -249,7 +349,7 @@ class PlatformViewModel(
         category: String,
         imageUri: Uri?,
         removeImage: Boolean,
-    ) = run("作品已更新，等待审核") {
+    ) = run("作品已更新，AI初审通过后会重新临时发布") {
         val cover = when {
             imageUri != null -> uploadImage(context, imageUri)
             removeImage -> ""
@@ -303,11 +403,48 @@ class PlatformViewModel(
         loadMineInternal()
     }
 
+    fun createCollection(title: String, description: String) = run("合集已创建") {
+        api.createCollection(CollectionCreateRequest(title.trim(), description.ifBlank { null }))
+        loadMineInternal()
+    }
+
+    fun deleteCollection(id: Int) = run("合集已删除") {
+        api.deleteCollection(id)
+        loadMineInternal()
+    }
+
+    fun addWorkToCollection(collectionId: Int, workId: Int, nextSort: Int) = run("已加入合集") {
+        api.addCollectionItem(collectionId, CollectionItemCreateRequest(workId, nextSort))
+        loadMineInternal()
+    }
+
+    fun removeCollectionItem(itemId: Int) = run("已移出合集") {
+        api.deleteCollectionItem(itemId)
+        loadMineInternal()
+    }
+
+    fun moveCollectionItem(itemId: Int, sortOrder: Int) = run("排序已更新") {
+        api.updateCollectionItem(itemId, CollectionItemUpdateRequest(sortOrder))
+        loadMineInternal()
+    }
+
     private suspend fun uploadImage(context: Context, uri: Uri): String? {
         val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
         val body = bytes.toRequestBody("image/*".toMediaType())
         val part = MultipartBody.Part.createFormData("file", "cover.jpg", body)
         return api.uploadImage(part)["url"]
+    }
+
+    private suspend fun uploadImages(context: Context, uris: List<Uri>): List<String> {
+        if (uris.isEmpty()) return emptyList()
+        val parts = uris.mapIndexedNotNull { index, uri ->
+            val bytes = context.contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return@mapIndexedNotNull null
+            val body = bytes.toRequestBody("image/*".toMediaType())
+            MultipartBody.Part.createFormData("files", "image_${index + 1}.jpg", body)
+        }
+        if (parts.isEmpty()) return emptyList()
+        val response = api.uploadImages(parts)
+        return response.urls.ifEmpty { response.images }
     }
 
     fun loadMine() = run(null) {
@@ -318,6 +455,7 @@ class PlatformViewModel(
         val profile = api.me()
         val myWorks = api.myWorks().items
         val myComments = api.myComments().items
+        val collections = api.myCollections()
         val follows = api.myFollows().items
         val favorites = api.favorites().items
         _state.update {
@@ -325,6 +463,7 @@ class PlatformViewModel(
                 profile = profile,
                 myWorks = myWorks,
                 myComments = myComments,
+                collections = collections,
                 follows = follows,
                 followedAuthorIds = follows.map { follow -> follow.followedId }.toSet(),
                 favorites = favorites
@@ -350,6 +489,13 @@ class PlatformViewModel(
         loadAdminInternal()
     }
 
+    fun openReportTarget(targetType: String, targetId: Int) = run(null) {
+        val detail = api.reportTarget(targetType, targetId)
+        _state.update {
+            it.copy(reportTargetDetails = it.reportTargetDetails + ("$targetType:$targetId" to detail))
+        }
+    }
+
     fun setUserStatus(id: Int, status: String) = run("用户状态已更新") {
         api.updateUserStatus(id, status)
         loadAdminInternal()
@@ -370,7 +516,18 @@ class PlatformViewModel(
                 block()
                 if (successMessage != null) _state.update { it.copy(message = successMessage) }
             } catch (e: Exception) {
-                _state.update { it.copy(message = readableError(e)) }
+                if (e is HttpException && e.code() == 401) {
+                    sessionStore.clear()
+                    _state.update {
+                        PlatformUiState(
+                            works = it.works,
+                            trendingTopics = it.trendingTopics,
+                            message = "登录已过期，请重新登录"
+                        )
+                    }
+                } else {
+                    _state.update { it.copy(message = readableError(e)) }
+                }
             } finally {
                 _state.update { it.copy(loading = false) }
             }
@@ -390,6 +547,7 @@ class PlatformViewModel(
 
     private fun readableError(e: Exception): String {
         if (e is HttpException) {
+            if (e.code() == 401) return "登录已过期，请重新登录"
             val detail = e.response()?.errorBody()?.string()
                 ?.substringAfter("\"detail\":\"", "")
                 ?.substringBefore("\"")

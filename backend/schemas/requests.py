@@ -88,6 +88,27 @@ class ChapterUpdateIn(BaseModel):
     sort_order: int | None = Field(default=None, ge=1, le=999)
 
 
+class CollectionCreateIn(BaseModel):
+    title: str = Field(min_length=1, max_length=120)
+    description: str | None = Field(default=None, max_length=500)
+    cover_image: str | None = None
+
+
+class CollectionUpdateIn(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=120)
+    description: str | None = Field(default=None, max_length=500)
+    cover_image: str | None = None
+
+
+class CollectionItemCreateIn(BaseModel):
+    work_id: int = Field(ge=1)
+    sort_order: int | None = Field(default=None, ge=1, le=999)
+
+
+class CollectionItemUpdateIn(BaseModel):
+    sort_order: int = Field(ge=1, le=999)
+
+
 class CommentCreateIn(BaseModel):
     content: str = Field(min_length=1, max_length=500)
     parent_id: int | None = Field(default=None, ge=1)

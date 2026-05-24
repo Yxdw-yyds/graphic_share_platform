@@ -1,6 +1,7 @@
 from datetime import datetime
+import json
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ORMModel(BaseModel):
@@ -38,6 +39,7 @@ class WorkOut(ORMModel):
     summary: str | None = None
     category: str
     cover_image: str | None = None
+    images: list[str] = Field(default_factory=list)
     status: str
     review_note: str | None = None
     view_count: int
@@ -48,6 +50,20 @@ class WorkOut(ORMModel):
     created_at: datetime
     updated_at: datetime
     author: UserOut | None = None
+
+    @model_validator(mode="after")
+    def parse_cover_images(self):
+        if self.images or not self.cover_image:
+            return self
+        try:
+            parsed = json.loads(self.cover_image)
+        except (TypeError, ValueError):
+            parsed = None
+        if isinstance(parsed, list):
+            self.images = [item for item in parsed if isinstance(item, str) and item]
+        else:
+            self.images = [self.cover_image]
+        return self
 
 
 class ChapterOut(ORMModel):
@@ -61,6 +77,26 @@ class ChapterOut(ORMModel):
     created_at: datetime
 
 
+class CollectionItemOut(ORMModel):
+    id: int
+    collection_id: int
+    work_id: int
+    sort_order: int
+    created_at: datetime
+    work: WorkOut | None = None
+
+
+class CollectionOut(ORMModel):
+    id: int
+    user_id: int
+    title: str
+    description: str | None = None
+    cover_image: str | None = None
+    created_at: datetime
+    updated_at: datetime
+    items: list[CollectionItemOut] = []
+
+
 class CommentOut(ORMModel):
     id: int
     work_id: int
@@ -71,6 +107,7 @@ class CommentOut(ORMModel):
     status: str
     created_at: datetime
     user: UserOut | None = None
+    parent_user: UserOut | None = None
     replies: list["CommentOut"] = Field(default_factory=list)
 
 

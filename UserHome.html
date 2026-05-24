@@ -84,6 +84,22 @@
       object-fit: cover;
       border-radius: var(--radius-md);
       margin-top: 14px;
+      display: block;
+      cursor: zoom-in;
+    }
+    .work-image-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .work-image-grid img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: var(--radius-md);
+      display: block;
+      cursor: zoom-in;
     }
     .work-meta {
       margin-top: 12px;
@@ -92,6 +108,43 @@
       display: flex;
       gap: 14px;
       flex-wrap: wrap;
+    }
+    .section-title {
+      margin: 20px 0 12px;
+      font-size: 20px;
+      font-weight: 900;
+    }
+    .collection-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+    .collection-card {
+      background: #fff;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      cursor: pointer;
+      box-shadow: var(--shadow-sm);
+    }
+    .collection-card strong {
+      display: block;
+      margin-bottom: 8px;
+      font-size: 16px;
+    }
+    .collection-meta, .collection-link {
+      color: var(--text-secondary);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+    .collection-link {
+      color: var(--primary-color);
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .work-card {
+      cursor: pointer;
     }
   </style>
 </head>
@@ -105,6 +158,7 @@
     <section class="profile-card" id="profile-card">
       <div class="acf-skeleton acf-skeleton-card" style="width:100%;"></div>
     </section>
+    <section id="collections-section"></section>
     <section id="works-list"></section>
   </main>
 
@@ -113,10 +167,17 @@
   <script>
     const params = new URLSearchParams(location.search);
     const userId = Number(params.get('id'));
+    const initialCollectionId = Number(params.get('collection'));
+    let publicCollections = [];
+    let publicWorks = [];
 
-    function imageUrl(url) {
-      if (!url) return '';
-      return url.startsWith('/uploads/') ? `${API_BASE_URL}${url}` : url;
+    function renderWorkImages(work) {
+      const images = normalizeWorkImages(work);
+      if (!images.length) return '';
+      if (images.length === 1) {
+        return `<img class="work-img" src="${images[0]}" alt="${work.title}" ${lightboxImageAttrs(images, 0)}>`;
+      }
+      return `<div class="work-image-grid">${images.map((src, index) => `<img src="${src}" alt="${work.title}" ${lightboxImageAttrs(images, index)}>`).join('')}</div>`;
     }
 
     function renderProfile(user) {
@@ -135,26 +196,96 @@
       `;
     }
 
-    function renderWorks(works) {
+    function renderCollections(collections) {
+      const box = document.getElementById('collections-section');
+      if (!collections.length) {
+        box.innerHTML = '';
+        return;
+      }
+      box.innerHTML = `
+        <div class="section-title">合集和系列</div>
+        <div class="collection-grid">
+          ${collections.map(c => `
+            <div class="collection-card" onclick="renderCollectionDetail(${c.id})">
+              <strong>${c.title}</strong>
+              <div class="collection-meta">${c.description || '暂无简介'}</div>
+              <div class="collection-meta">${(c.items || []).length} 个内容 · ${new Date(c.updated_at).toLocaleDateString()}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function collectionLinksForWork(workId) {
+      const hits = publicCollections.filter(c => (c.items || []).some(item => Number(item.work_id) === Number(workId)));
+      if (!hits.length) return '';
+      return `<span>所属合集：${hits.map(c => `<span class="collection-link" onclick="event.stopPropagation(); renderCollectionDetail(${c.id})">${c.title}</span>`).join('、')}</span>`;
+    }
+
+    function renderWorks(works, title = '公开动态') {
       const box = document.getElementById('works-list');
       if (!works.length) {
         box.innerHTML = acf.emptyState({ title: '暂无公开图文', description: '该用户还没有已审核通过的作品' });
         return;
       }
-      box.innerHTML = works.map(w => `
-        <article class="work-card">
+      box.innerHTML = `<div class="section-title">${title}</div>` + works.map(w => `
+        <article class="work-card" onclick="renderWorkDetail(${w.id})">
           <div class="work-title">#${w.category} ${w.title}</div>
           <div class="work-summary">${w.summary || ''}</div>
-          ${w.cover_image ? `<img class="work-img" src="${imageUrl(w.cover_image)}" alt="${w.title}">` : ''}
+          ${renderWorkImages(w)}
           <div class="work-meta">
             <span>${new Date(w.created_at).toLocaleString()}</span>
             <span>${w.like_count || 0} 点赞</span>
             <span>${w.favorite_count || 0} 收藏</span>
             <span>${w.comment_count || 0} 评论</span>
             <span>热度 ${Math.round(w.heat || 0)}</span>
+            ${collectionLinksForWork(w.id)}
           </div>
         </article>
       `).join('');
+    }
+
+    function renderCollectionDetail(collectionId) {
+      const collection = publicCollections.find(c => Number(c.id) === Number(collectionId));
+      if (!collection) return;
+      const works = (collection.items || []).map(item => item.work).filter(Boolean);
+      document.getElementById('collections-section').innerHTML = `
+        <div class="collection-card" style="cursor:default;">
+          <div class="collection-link" onclick="renderCollections(publicCollections); renderWorks(publicWorks);">返回全部合集</div>
+          <h2>${collection.title}</h2>
+          <div class="collection-meta">${collection.description || '暂无简介'}</div>
+          <div class="collection-meta">${works.length} 个内容</div>
+        </div>
+      `;
+      renderWorks(works, '合集内容');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function renderWorkDetail(workId) {
+      const work = publicWorks.find(w => Number(w.id) === Number(workId))
+        || publicCollections.flatMap(c => c.items || []).map(item => item.work).find(w => Number(w?.id) === Number(workId));
+      if (!work) return;
+      document.getElementById('collections-section').innerHTML = `
+        <div class="collection-card" style="cursor:default;">
+          <span class="collection-link" onclick="renderCollections(publicCollections); renderWorks(publicWorks);">返回主页内容</span>
+        </div>
+      `;
+      document.getElementById('works-list').innerHTML = `
+        <article class="work-card" style="cursor:default;">
+          <div class="work-title">#${work.category} ${work.title}</div>
+          <div class="work-summary">${work.summary || ''}</div>
+          ${renderWorkImages(work)}
+          <div class="work-meta">
+            <span>${new Date(work.created_at).toLocaleString()}</span>
+            <span>${work.like_count || 0} 点赞</span>
+            <span>${work.favorite_count || 0} 收藏</span>
+            <span>${work.comment_count || 0} 评论</span>
+            <span>热度 ${Math.round(work.heat || 0)}</span>
+            ${collectionLinksForWork(work.id)}
+          </div>
+        </article>
+      `;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     async function init() {
@@ -163,12 +294,20 @@
         return;
       }
       try {
-        const [user, works] = await Promise.all([
+        const [user, works, collections] = await Promise.all([
           apiFetch(`/api/users/${userId}`, { silent: true }),
-          apiFetch(`/api/users/${userId}/works`, { silent: true })
+          apiFetch(`/api/users/${userId}/works`, { silent: true }),
+          apiFetch(`/api/users/${userId}/collections`, { silent: true })
         ]);
+        publicWorks = Array.isArray(works) ? works : (works.items || []);
+        publicCollections = Array.isArray(collections) ? collections : [];
         renderProfile(user);
-        renderWorks(Array.isArray(works) ? works : (works.items || []));
+        renderCollections(publicCollections);
+        if (initialCollectionId && publicCollections.some(c => Number(c.id) === initialCollectionId)) {
+          renderCollectionDetail(initialCollectionId);
+        } else {
+          renderWorks(publicWorks);
+        }
       } catch (err) {
         document.getElementById('profile-card').innerHTML = `<div style="color:#e0245e;">${err.message}</div>`;
       }

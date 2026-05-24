@@ -45,3 +45,10 @@ def paginate(query: SAQuery, params: PageParams):
         "size": params.size,
         "pages": ceil(total / params.size) if params.size else 0,
     }
+
+
+def serialize_page(result, schema):
+    if isinstance(result, dict):
+        result["items"] = [schema.model_validate(item).model_dump(mode="json") for item in result["items"]]
+        return result
+    return [schema.model_validate(item).model_dump(mode="json") for item in result]

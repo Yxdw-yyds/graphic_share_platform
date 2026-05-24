@@ -100,6 +100,10 @@ interface ApiService {
     @POST("/api/works/upload-image")
     suspend fun uploadImage(@Part file: MultipartBody.Part): Map<String, String>
 
+    @Multipart
+    @POST("/api/works/upload-images")
+    suspend fun uploadImages(@Part files: List<MultipartBody.Part>): UploadImagesResponse
+
     @GET("/api/users/me/works")
     suspend fun myWorks(@Query("page") page: Int = 1, @Query("size") size: Int = 20): PageDto<WorkDto>
 
@@ -108,6 +112,39 @@ interface ApiService {
 
     @GET("/api/users/me/follows")
     suspend fun myFollows(@Query("page") page: Int = 1, @Query("size") size: Int = 20): PageDto<FollowDto>
+
+    @GET("/api/users/me/collections")
+    suspend fun myCollections(): List<CollectionDto>
+
+    @GET("/api/users/{id}")
+    suspend fun user(@Path("id") id: Int): UserDto
+
+    @GET("/api/users/{id}/works")
+    suspend fun userWorks(@Path("id") id: Int, @Query("page") page: Int = 1, @Query("size") size: Int = 100): PageDto<WorkDto>
+
+    @GET("/api/users/{id}/collections")
+    suspend fun userCollections(@Path("id") id: Int): List<CollectionDto>
+
+    @GET("/api/works/{id}/collections")
+    suspend fun workCollections(@Path("id") id: Int): List<CollectionDto>
+
+    @POST("/api/users/me/collections")
+    suspend fun createCollection(@Body body: CollectionCreateRequest): CollectionDto
+
+    @PATCH("/api/users/me/collections/{id}")
+    suspend fun updateCollection(@Path("id") id: Int, @Body body: CollectionUpdateRequest): CollectionDto
+
+    @DELETE("/api/users/me/collections/{id}")
+    suspend fun deleteCollection(@Path("id") id: Int): Map<String, String>
+
+    @POST("/api/users/me/collections/{id}/items")
+    suspend fun addCollectionItem(@Path("id") id: Int, @Body body: CollectionItemCreateRequest): CollectionItemDto
+
+    @PATCH("/api/users/me/collection-items/{id}")
+    suspend fun updateCollectionItem(@Path("id") id: Int, @Body body: CollectionItemUpdateRequest): CollectionItemDto
+
+    @DELETE("/api/users/me/collection-items/{id}")
+    suspend fun deleteCollectionItem(@Path("id") id: Int): Map<String, String>
 
     @POST("/api/users/{id}/follow")
     suspend fun follow(@Path("id") id: Int): ToggleFollowResponse
@@ -126,6 +163,9 @@ interface ApiService {
 
     @GET("/api/reports")
     suspend fun reports(@Query("status") status: String? = null, @Query("page") page: Int = 1, @Query("size") size: Int = 20): PageDto<ReportDto>
+
+    @GET("/api/admin/reports/target")
+    suspend fun reportTarget(@Query("target_type") targetType: String, @Query("target_id") targetId: Int): ReportTargetDetailDto
 
     @POST("/api/reports/{id}/handle")
     suspend fun handleReport(@Path("id") id: Int, @Query("approved") approved: Boolean): Map<String, String>

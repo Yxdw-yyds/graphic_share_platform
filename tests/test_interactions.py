@@ -40,6 +40,24 @@ def test_comment_then_get(client, user_headers, approved_work):
     assert len(listed) == 1
 
 
+def test_owner_comment_management_returns_tree_without_duplicate_replies(client, user_headers, approved_work):
+    parent = client.post(
+        f"/api/works/{approved_work}/comments",
+        headers=user_headers,
+        json={"content": "parent"},
+    ).json()
+    reply = client.post(
+        f"/api/works/{approved_work}/comments",
+        headers=user_headers,
+        json={"content": "reply", "parent_id": parent["id"]},
+    ).json()
+
+    listed = client.get(f"/api/works/{approved_work}/all-comments", headers=user_headers).json()
+    assert [comment["id"] for comment in listed] == [parent["id"]]
+    assert [comment["id"] for comment in listed[0]["replies"]] == [reply["id"]]
+    assert listed[0]["replies"][0]["parent_user"]["id"] == parent["user_id"]
+
+
 def test_comment_too_long(client, user_headers, approved_work):
     res = client.post(
         f"/api/works/{approved_work}/comments",
@@ -61,6 +79,8 @@ def test_favorite_toggle(client, user_headers, approved_work):
     assert r1["favorited"] is True
     favs = client.get("/api/favorites", headers=user_headers).json()
     assert any(w["id"] == approved_work for w in favs)
+    favorite = next(w for w in favs if w["id"] == approved_work)
+    assert "password_hash" not in favorite["author"]
 
 
 def test_report_invalid_reason(client, user_headers, approved_work):
@@ -91,7 +111,8 @@ def test_report_create_and_handle(client, user_headers, admin_headers, approved_
     rid = res.json()["id"]
 
     listed = client.get("/api/reports", headers=admin_headers).json()
-    assert any(r["id"] == rid for r in listed)
+    report = next(r for r in listed if r["id"] == rid)
+    assert "password_hash" not in report["reporter"]
 
     res = client.post(
         f"/api/reports/{rid}/handle?approved=true", headers=admin_headers

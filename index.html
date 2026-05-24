@@ -274,6 +274,7 @@
       border-radius: 50%;
       margin-right: 12px;
       object-fit: cover;
+      cursor: pointer;
     }
 
     .user-info {
@@ -285,6 +286,7 @@
       font-weight: 700;
       font-size: 16px;
       color: var(--text-main);
+      cursor: pointer;
     }
 
     .post-time {
@@ -305,6 +307,27 @@
       border-radius: 12px;
       margin-bottom: 15px;
       border: 1px solid var(--border-color);
+      display: block;
+      object-fit: cover;
+      max-height: 520px;
+      cursor: zoom-in;
+    }
+
+    .post-image-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      margin-bottom: 15px;
+    }
+
+    .post-image-grid img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
+      display: block;
+      cursor: zoom-in;
     }
 
     .post-actions {
@@ -313,6 +336,25 @@
       border-top: 1px solid var(--border-color);
       padding-top: 12px;
       color: var(--text-secondary);
+    }
+
+    .post-collections {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin: 10px 0 2px;
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    .collection-chip {
+      border: 1px solid var(--border-color);
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: #f7f9f9;
+      color: var(--primary-color);
+      font-weight: 700;
+      cursor: pointer;
     }
 
     .action-btn {
@@ -329,6 +371,17 @@
     .action-btn:hover {
       background-color: rgba(29, 161, 242, 0.1);
       color: var(--primary-color);
+    }
+
+    .action-btn.favorite-active {
+      background-color: rgba(255, 200, 0, 0.16);
+      color: #b77900;
+      font-weight: 700;
+    }
+
+    .action-btn.favorite-active:hover {
+      background-color: rgba(255, 200, 0, 0.24);
+      color: #9a6700;
     }
 
     /* 左侧装饰 */
@@ -600,6 +653,53 @@
       font-size: 16px;
     }
 
+    .password-field {
+      position: relative;
+      margin: 10px 0;
+    }
+
+    .password-field input {
+      margin: 0;
+      padding-right: 48px;
+    }
+
+    .password-toggle {
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      border: none;
+      background: transparent;
+      color: #111;
+      width: auto !important;
+      margin: 0 !important;
+      padding: 6px !important;
+      font-size: 0 !important;
+      line-height: 0;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .password-toggle svg {
+      width: 22px;
+      height: 22px;
+      stroke: currentColor;
+      stroke-width: 2;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .password-toggle .eye-slash {
+      display: block;
+    }
+
+    .password-toggle.visible .eye-slash {
+      display: none;
+    }
+
     .login-box button {
       width: 100%;
       padding: 12px;
@@ -711,7 +811,10 @@
       <!-- 密码登录表单 -->
       <form id="form-pwd-login" onsubmit="event.preventDefault(); loginWithPwd();">
         <input type="text" id="login-account" placeholder="手机号/邮箱" required>
-        <input type="password" id="login-password" placeholder="请输入密码" required>
+        <div class="password-field">
+          <input type="password" id="login-password" placeholder="请输入密码" required>
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('login-password', this)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle><path class="eye-slash" d="M4 4l16 16"></path></svg></button>
+        </div>
         
         <!-- 系统验证码 -->
         <div style="display: flex; gap: 10px; align-items: center;">
@@ -747,8 +850,14 @@
       <h3>注册新账号</h3>
       <form onsubmit="event.preventDefault(); doRegister();">
         <input type="text" id="reg-account" placeholder="手机号/邮箱" required>
-        <input type="password" id="reg-password" placeholder="设置密码" required>
-        <input type="password" id="reg-confirm-password" placeholder="确认密码" required>
+        <div class="password-field">
+          <input type="password" id="reg-password" placeholder="设置密码" required>
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('reg-password', this)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle><path class="eye-slash" d="M4 4l16 16"></path></svg></button>
+        </div>
+        <div class="password-field">
+          <input type="password" id="reg-confirm-password" placeholder="确认密码" required>
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('reg-confirm-password', this)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle><path class="eye-slash" d="M4 4l16 16"></path></svg></button>
+        </div>
         
         <div style="display: flex; gap: 10px;">
              <input type="text" id="reg-code" placeholder="验证码" style="flex: 1;" required>
@@ -774,7 +883,10 @@
              <button type="button" onclick="sendOtp('reset-account')" style="width: 100px; padding: 0; font-size: 12px; margin: 10px 0; height: 42px;">获取验证码</button>
         </div>
         
-        <input type="password" id="reset-new-password" placeholder="新密码" required>
+        <div class="password-field">
+          <input type="password" id="reset-new-password" placeholder="新密码" required>
+          <button type="button" class="password-toggle" onclick="togglePasswordVisibility('reset-new-password', this)"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle><path class="eye-slash" d="M4 4l16 16"></path></svg></button>
+        </div>
 
         <button type="submit">重置密码</button>
         <button type="button" class="secondary-btn" onclick="showLogin()">返回登录</button>
@@ -899,6 +1011,7 @@
       currentUser: localStorage.getItem('user'),
       posts: [],
       followedAuthorIds: new Set(),
+      favoriteWorkIds: new Set(),
       generatedCaptcha: '',
       sentOtp: {} // 存储发送的验证码 { account: code }
     };
@@ -1179,22 +1292,24 @@
         const authorId = Number(post.raw?.author_id || post.raw?.author?.id || 0);
         const isOwnPost = authorId && authorId === currentUserId;
         const isFollowed = authorId && state.followedAuthorIds.has(authorId);
+        const isFavorited = state.favoriteWorkIds.has(Number(post.id));
         const followButton = authorId && !isOwnPost
           ? `<button class="follow-btn ${isFollowed ? 'followed' : ''}" data-author-id="${authorId}" onclick="event.stopPropagation(); followAuthor(${authorId})">${isFollowed ? '已关注' : '关注'}</button>`
           : '';
         return `
         <article class="post-card" id="post-${post.id}">
           <div class="post-header">
-            <img src="https://api.dicebear.com/7.x/thumbs/svg?seed=${post.avatarSeed}" class="user-avatar" />
+            <img src="https://api.dicebear.com/7.x/thumbs/svg?seed=${post.avatarSeed}" class="user-avatar" onclick="openUserHome(${authorId})" />
             <div class="user-info">
-              <span class="user-name">${post.user}</span>
+              <span class="user-name" onclick="openUserHome(${authorId})">${post.user}</span>
               <span class="post-time">${post.time}</span>
             </div>
             ${followButton}
           </div>
           <div class="post-content">
             <p class="post-text">${post.text}</p>
-            ${post.img ? `<img src="${post.img}" class="post-image" loading="lazy" />` : ''}
+            ${renderPostImages(post)}
+            <div class="post-collections" id="post-collections-${post.id}"></div>
           </div>
           <div class="post-actions">
             <div class="action-btn" onclick="toggleComments(this)">
@@ -1203,8 +1318,8 @@
             <div class="action-btn" onclick="likePost(this)">
               <span>👍</span> ${post.likes || 0} 点赞
             </div>
-            <div class="action-btn" onclick='saveFavorite(${JSON.stringify(post).replace(/'/g, "&#39;")})'>
-              <span>⭐</span> 收藏
+            <div class="action-btn favorite-btn ${isFavorited ? 'favorite-active' : ''}" data-work-id="${post.id}" onclick='saveFavorite(${JSON.stringify(post).replace(/'/g, "&#39;")})'>
+              <span>⭐</span> <span class="favorite-label">${isFavorited ? '已收藏' : '收藏'}</span><span class="favorite-count">${post.favorites || 0}</span>
             </div>
             <div class="action-btn" onclick="reportPost('${post.id}')">
               <span>🚩</span> 举报
@@ -1223,6 +1338,17 @@
         </article>
       `;
       }).join('');
+    }
+
+    function renderPostImages(post) {
+      const images = Array.isArray(post.images) && post.images.length
+        ? post.images
+        : (post.img ? [post.img] : []);
+      if (!images.length) return '';
+      if (images.length === 1) {
+        return `<img src="${images[0]}" class="post-image" loading="lazy" ${lightboxImageAttrs(images, 0)} />`;
+      }
+      return `<div class="post-image-grid">${images.map((src, index) => `<img src="${src}" loading="lazy" ${lightboxImageAttrs(images, index)} />`).join('')}</div>`;
     }
 
     function renderComments(post) {
@@ -1464,6 +1590,7 @@
       restoreRememberedLogin();
       await loadTrendingTopics();
       await loadFollowState();
+      await loadFavoriteState();
       await loadPosts();
     }
 
@@ -1568,6 +1695,14 @@
       } catch {}
     }
 
+    function togglePasswordVisibility(inputId, button) {
+      const input = document.getElementById(inputId);
+      if (!input) return;
+      const visible = input.type === 'text';
+      input.type = visible ? 'password' : 'text';
+      if (button) button.classList.toggle('visible', !visible);
+    }
+
     async function loginWithOtp() {
       const account = document.getElementById('login-otp-account').value.trim();
       const code = document.getElementById('login-otp-code').value.trim();
@@ -1622,6 +1757,16 @@
       } catch {}
     }
 
+    async function loadFavoriteState() {
+      state.favoriteWorkIds = new Set();
+      if (!getCurrentUser()) return;
+      try {
+        const favorites = await apiFetch('/api/favorites', { silent: true });
+        const list = Array.isArray(favorites) ? favorites : (favorites?.items || []);
+        state.favoriteWorkIds = new Set(list.map(work => Number(work.id)).filter(Boolean));
+      } catch {}
+    }
+
     async function loadPosts(type) {
       try {
         type = type || currentFilter || 'home';
@@ -1635,6 +1780,7 @@
         state.posts = works.map(workToPost);
         for (const post of state.posts) {
           post.comments = await apiFetch(`/api/works/${post.id}/comments`, { silent: true });
+          post.collections = await apiFetch(`/api/works/${post.id}/collections`, { silent: true }).catch(() => []);
         }
         if (state.posts.length === 0) {
           postFeed.innerHTML = acf.emptyState({
@@ -1645,9 +1791,26 @@
           return;
         }
         renderFeed();
+        renderPostCollections();
       } catch (err) {
         postFeed.innerHTML = acf.emptyState({ icon: '⚠️', text: err.message });
       }
+    }
+
+    function renderPostCollections() {
+      state.posts.forEach(post => {
+        const box = document.getElementById(`post-collections-${post.id}`);
+        const collections = Array.isArray(post.collections) ? post.collections : [];
+        if (!box || !collections.length) return;
+        box.innerHTML = `<span>所属合集</span>${collections.map(c => `
+          <span class="collection-chip" onclick="event.stopPropagation(); window.location.href='UserHome.html?id=${c.user_id}&collection=${c.id}'">${c.title}</span>
+        `).join('')}`;
+      });
+    }
+
+    function openUserHome(authorId) {
+      if (!authorId) return acf.toast('作者信息不存在', 'warning');
+      window.location.href = `UserHome.html?id=${authorId}`;
     }
 
     function formatPostCount(n) {
@@ -1770,8 +1933,28 @@
       if (!getCurrentUser()) return acf.toast('请先登录', 'warning');
       try {
         const res = await apiFetch(`/api/works/${post.id}/favorite`, { method: 'POST' });
+        const workId = Number(post.id);
+        const nextCount = Number(res.favorite_count ?? post.favorites ?? 0);
+        if (res.favorited) {
+          state.favoriteWorkIds.add(workId);
+        } else {
+          state.favoriteWorkIds.delete(workId);
+        }
+        const cached = state.posts.find(item => Number(item.id) === workId);
+        if (cached) cached.favorites = nextCount;
+        updateFavoriteButtons(workId, !!res.favorited, nextCount);
         acf.toast(res.favorited ? '已添加到收藏夹' : '已取消收藏', 'success');
       } catch {}
+    }
+
+    function updateFavoriteButtons(workId, isFavorited, count) {
+      document.querySelectorAll(`.favorite-btn[data-work-id="${workId}"]`).forEach(btn => {
+        btn.classList.toggle('favorite-active', isFavorited);
+        const label = btn.querySelector('.favorite-label');
+        const countNode = btn.querySelector('.favorite-count');
+        if (label) label.textContent = isFavorited ? '已收藏' : '收藏';
+        if (countNode) countNode.textContent = Number(count || 0);
+      });
     }
 
     function updateFollowButtons(authorId) {

@@ -42,6 +42,7 @@ data class WorkDto(
     val summary: String? = null,
     val category: String,
     @SerialName("cover_image") val coverImage: String? = null,
+    val images: List<String> = emptyList(),
     val status: String,
     @SerialName("review_note") val reviewNote: String? = null,
     @SerialName("view_count") val viewCount: Int = 0,
@@ -67,6 +68,28 @@ data class ChapterDto(
 )
 
 @Serializable
+data class CollectionItemDto(
+    val id: Int,
+    @SerialName("collection_id") val collectionId: Int,
+    @SerialName("work_id") val workId: Int,
+    @SerialName("sort_order") val sortOrder: Int = 1,
+    @SerialName("created_at") val createdAt: String = "",
+    val work: WorkDto? = null,
+)
+
+@Serializable
+data class CollectionDto(
+    val id: Int,
+    @SerialName("user_id") val userId: Int,
+    val title: String,
+    val description: String? = null,
+    @SerialName("cover_image") val coverImage: String? = null,
+    @SerialName("created_at") val createdAt: String = "",
+    @SerialName("updated_at") val updatedAt: String = "",
+    val items: List<CollectionItemDto> = emptyList(),
+)
+
+@Serializable
 data class CommentDto(
     val id: Int,
     @SerialName("work_id") val workId: Int,
@@ -77,6 +100,7 @@ data class CommentDto(
     val status: String,
     @SerialName("created_at") val createdAt: String = "",
     val user: UserDto? = null,
+    @SerialName("parent_user") val parentUser: UserDto? = null,
     val replies: List<CommentDto> = emptyList()
 )
 
@@ -91,6 +115,14 @@ data class ReportDto(
     val status: String,
     @SerialName("created_at") val createdAt: String = "",
     val reporter: UserDto? = null,
+)
+
+@Serializable
+data class ReportTargetDetailDto(
+    @SerialName("target_type") val targetType: String,
+    @SerialName("target_id") val targetId: Int,
+    val work: WorkDto,
+    val comments: List<CommentDto> = emptyList(),
 )
 
 @Serializable
@@ -136,6 +168,11 @@ data class TrendingTopicDto(
     @SerialName("first_chapter_content") val firstChapterContent: String,
 )
 
+@Serializable data class UploadImagesResponse(
+    val urls: List<String> = emptyList(),
+    val images: List<String> = emptyList(),
+)
+
 @Serializable data class WorkUpdateRequest(
     val title: String? = null,
     val summary: String? = null,
@@ -156,6 +193,22 @@ data class TrendingTopicDto(
     @SerialName("image_url") val imageUrl: String? = null,
     @SerialName("sort_order") val sortOrder: Int? = null,
 )
+
+@Serializable data class CollectionCreateRequest(
+    val title: String,
+    val description: String? = null,
+    @SerialName("cover_image") val coverImage: String? = null,
+)
+@Serializable data class CollectionUpdateRequest(
+    val title: String? = null,
+    val description: String? = null,
+    @SerialName("cover_image") val coverImage: String? = null,
+)
+@Serializable data class CollectionItemCreateRequest(
+    @SerialName("work_id") val workId: Int,
+    @SerialName("sort_order") val sortOrder: Int? = null,
+)
+@Serializable data class CollectionItemUpdateRequest(@SerialName("sort_order") val sortOrder: Int)
 
 @Serializable data class UserUpdateRequest(
     val nickname: String? = null,

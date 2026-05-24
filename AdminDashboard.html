@@ -213,11 +213,16 @@
 
     /* 状态标签 */
     .status {
-      display: inline-block;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
       padding: 4px 8px;
       border-radius: 9999px;
       font-size: 12px;
       font-weight: bold;
+      line-height: 1;
+      white-space: nowrap;
+      min-width: 52px;
     }
     .status-pending {
       background-color: rgba(255, 173, 31, 0.1);
@@ -249,6 +254,68 @@
     .btn-approve { background-color: var(--success-color); }
     .btn-reject { background-color: var(--danger-color); }
     .btn-view { background-color: var(--primary-color); }
+
+    .status-cell {
+      white-space: nowrap;
+      width: 72px;
+    }
+
+    .action-cell {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+      min-width: 210px;
+    }
+
+    .action-cell .btn {
+      flex: 0 0 auto;
+      padding: 8px 14px;
+    }
+
+    .report-tabs {
+      display: flex;
+      gap: 8px;
+      margin: 10px 0 14px;
+    }
+
+    .report-tab {
+      border: 1px solid var(--border-color);
+      background: #f7f9f9;
+      color: var(--text-primary);
+      border-radius: 9999px;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .report-tab.active {
+      background: var(--primary-color);
+      color: white;
+      border-color: var(--primary-color);
+    }
+
+    .report-panel {
+      display: none;
+    }
+
+    .report-panel.active {
+      display: block;
+    }
+
+    .comment-review-list {
+      display: grid;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .comment-review-item {
+      border-left: 3px solid var(--border-color);
+      padding: 8px 10px;
+      background: #f7f9f9;
+      border-radius: 8px;
+    }
 
     /* 统计卡片 */
     .stats-grid {
@@ -328,6 +395,21 @@
       border-radius: 10px;
       border: 1px solid var(--border-color);
       margin: 12px 0;
+      cursor: zoom-in;
+    }
+    .detail-image-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin: 12px 0;
+    }
+    .detail-image-grid img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      cursor: zoom-in;
     }
     .chapter-block {
       border-top: 1px solid var(--border-color);
@@ -384,7 +466,7 @@
       <div id="review" class="section active">
         <h3>
             待审核图文
-            <span style="font-size: 14px; color: var(--text-secondary); font-weight: normal;">共 2 条待办</span>
+            <span id="review-count-label" style="font-size: 14px; color: var(--text-secondary); font-weight: normal;">共 0 条待办</span>
         </h3>
         <table>
           <thead>
@@ -441,22 +523,42 @@
       <!-- 举报管理模块 -->
       <div id="reports" class="section">
         <h3>举报处理列表</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>举报ID</th>
-              <th>举报人</th>
-              <th>举报原因</th>
-              <th>详细描述</th>
-              <th>举报时间</th>
-              <th>状态</th>
-              <th>操作</th>
-            </tr>
-          </thead>
-          <tbody id="report-list-body">
-            <!-- JS渲染 -->
-          </tbody>
-        </table>
+        <div class="report-tabs">
+          <button class="report-tab active" onclick="switchReportPanel('work')">帖子举报 <span id="work-report-count">0</span></button>
+          <button class="report-tab" onclick="switchReportPanel('comment')">评论举报 <span id="comment-report-count">0</span></button>
+        </div>
+        <div id="work-report-panel" class="report-panel active">
+          <table>
+            <thead>
+              <tr>
+                <th>举报ID</th>
+                <th>举报人</th>
+                <th>举报原因</th>
+                <th>详细描述</th>
+                <th>举报时间</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="work-report-list-body"></tbody>
+          </table>
+        </div>
+        <div id="comment-report-panel" class="report-panel">
+          <table>
+            <thead>
+              <tr>
+                <th>举报ID</th>
+                <th>举报人</th>
+                <th>举报原因</th>
+                <th>详细描述</th>
+                <th>举报时间</th>
+                <th>状态</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="comment-report-list-body"></tbody>
+          </table>
+        </div>
       </div>
 
       <!-- 用户管理模块 -->
@@ -580,6 +682,52 @@
     badge.textContent = value > 99 ? '99+' : String(value);
   }
 
+  function switchReportPanel(type) {
+    document.querySelectorAll('.report-tab').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.report-panel').forEach(panel => panel.classList.remove('active'));
+    const index = type === 'work' ? 0 : 1;
+    document.querySelectorAll('.report-tab')[index]?.classList.add('active');
+    document.getElementById(`${type}-report-panel`)?.classList.add('active');
+  }
+
+  function renderCommentTree(comments) {
+    const list = Array.isArray(comments) ? comments : [];
+    if (!list.length) return '<div class="comment-review-item">暂无评论</div>';
+    const users = (comment) => comment.user?.nickname || comment.user?.account || `用户 ${comment.user_id}`;
+    const parentUsers = (comment) => {
+      if (comment.parent_user) return comment.parent_user.nickname || comment.parent_user.account || `用户 ${comment.parent_user.id}`;
+      const parent = list.find(item => item.id === comment.parent_id);
+      return parent ? users(parent) : '原评论';
+    };
+    return `<div class="comment-review-list">${list.map(comment => `
+      <div class="comment-review-item" style="margin-left:${comment.parent_id ? 24 : 0}px;${comment.id === Number(window.currentReportTargetId || 0) ? 'border-color:#e0245e;background:#fff5f8;' : ''}">
+        <strong>${users(comment)}${comment.parent_id ? ` 回复 @${parentUsers(comment)}` : ''}</strong>
+        <span style="color:#777;font-size:12px;">${new Date(comment.created_at).toLocaleString()} · ${comment.status}</span>
+        <div>${comment.content || ''}</div>
+      </div>
+    `).join('')}</div>`;
+  }
+
+  function renderReportRows(list, emptyText) {
+    return list.length ? list.map(r => `
+      <tr>
+        <td>${r.id}</td>
+        <td>${r.reporter?.nickname || r.reporter?.account || '-'}</td>
+        <td style="color:red;font-weight:bold;">${r.reason}</td>
+        <td>${r.description || '-'}</td>
+        <td>${new Date(r.created_at).toLocaleString()}</td>
+        <td class="status-cell"><span class="status ${r.status === 'pending' ? 'status-pending' : 'status-approved'}">${r.status}</span></td>
+        <td class="action-cell">
+          <button class="btn btn-view" onclick="viewReportTarget('${r.target_type}', ${r.target_id})">查看</button>
+          ${r.status === 'pending' ? `
+          <button class="btn btn-reject" onclick="handleReportApi(${r.id}, true)">删除内容</button>
+          <button class="btn btn-view" onclick="handleReportApi(${r.id}, false)">忽略</button>
+          ` : `<button class="btn btn-reject" onclick="deleteReportRecord(${r.id})">删除记录</button>`}
+        </td>
+      </tr>
+    `).join('') : `<tr><td colspan="7">${emptyText}</td></tr>`;
+  }
+
   function logout() {
     if (confirm('确定要退出登录吗？')) {
       localStorage.removeItem('user');
@@ -588,20 +736,24 @@
   }
   
   // Init
+  const WORK_STATUS_LABEL = { pending: '待人工审核', ai_approved: 'AI初审通过', approved: '已发布', rejected: '已驳回' };
+
   async function loadPendingWorks() {
     const tbody = document.getElementById('review-list-body');
     try {
       const works = await apiFetch('/api/works/pending');
       const list = Array.isArray(works) ? works : (works.items || []);
-      setMenuBadge('review-badge', works.total ?? list.length);
+      const count = works.total ?? list.length;
+      setMenuBadge('review-badge', count);
+      setReviewCountLabel(count);
       tbody.innerHTML = list.length ? list.map(w => `
         <tr>
           <td>${w.id}</td>
           <td>${w.author?.nickname || w.author?.account || '-'}</td>
           <td>${w.title}<br><span style="color:#777;font-size:12px;">${w.summary || ''}</span></td>
-          <td>${new Date(w.created_at).toLocaleString()}</td>
-          <td><span class="status status-pending">待审核</span></td>
-          <td>
+          <td>${new Date(w.updated_at || w.created_at).toLocaleString()}</td>
+          <td class="status-cell"><span class="status status-pending">${WORK_STATUS_LABEL[w.status] || w.status}</span></td>
+          <td class="action-cell">
             <button class="btn btn-view" onclick="openWorkDetail(${w.id})">查看</button>
             <button class="btn btn-approve" onclick="reviewWork(${w.id}, true)">通过</button>
             <button class="btn btn-reject" onclick="reviewWork(${w.id}, false)">驳回</button>
@@ -611,6 +763,11 @@
     } catch (err) {
       tbody.innerHTML = `<tr><td colspan="6">${err.message}</td></tr>`;
     }
+  }
+
+  function setReviewCountLabel(count) {
+    const label = document.getElementById('review-count-label');
+    if (label) label.textContent = `共 ${Number(count || 0)} 条待办`;
   }
 
   async function reviewWork(id, approved) {
@@ -637,22 +794,21 @@
     try {
       const work = await apiFetch(`/api/admin/works/${id}`);
       const chapters = await apiFetch(`/api/admin/works/${id}/chapters`);
-      const imageSrc = (src) => src && src.startsWith('/uploads/') ? `${API_BASE_URL}${src}` : src;
       document.getElementById('detail-title').textContent = work.title;
       content.innerHTML = `
         <div class="detail-meta">
           <span>作者：${work.author?.nickname || work.author?.account || '-'}</span>
           <span>分类：${work.category}</span>
-          <span>状态：${work.status}</span>
-          <span>提交时间：${new Date(work.created_at).toLocaleString()}</span>
+          <span>状态：${WORK_STATUS_LABEL[work.status] || work.status}</span>
+          <span>提交时间：${new Date(work.updated_at || work.created_at).toLocaleString()}</span>
         </div>
         <div><strong>摘要：</strong>${work.summary || '-'}</div>
-        ${work.cover_image ? `<img class="detail-image" src="${imageSrc(work.cover_image)}" alt="作品图片">` : ''}
+        ${renderDetailImages(work)}
         ${chapters.map(ch => `
           <div class="chapter-block">
             <h4>${ch.title}</h4>
             <div>${ch.content}</div>
-            ${ch.image_url && ch.image_url !== work.cover_image ? `<img class="detail-image" src="${imageSrc(ch.image_url)}" alt="章节图片">` : ''}
+            ${ch.image_url && ch.image_url !== work.cover_image ? renderDetailImages({ cover_image: ch.image_url }) : ''}
           </div>
         `).join('')}
       `;
@@ -671,6 +827,7 @@
   }
 
   async function viewReportTarget(type, id) {
+    window.currentReportTargetId = type === 'comment' ? id : null;
     const modal = document.getElementById('work-detail-modal');
     const content = document.getElementById('detail-content');
     document.getElementById('detail-title').textContent = `举报目标 - ${type === 'work' ? '图文作品' : type === 'comment' ? '评论' : type} #${id}`;
@@ -679,32 +836,35 @@
     modal.style.display = 'flex';
     content.innerHTML = '加载中...';
     try {
-      if (type === 'work') {
-        const work = await apiFetch(`/api/admin/works/${id}`);
-        const chapters = await apiFetch(`/api/admin/works/${id}/chapters`);
-        const imageSrc = (src) => src && src.startsWith('/uploads/') ? `${API_BASE_URL}${src}` : src;
+      if (type === 'work' || type === 'comment') {
+        const detail = await apiFetch(`/api/admin/reports/target?target_type=${type}&target_id=${id}`);
+        const work = detail.work;
         content.innerHTML = `
           <div class="detail-meta">
             <span>作者：${work.author?.nickname || work.author?.account || '-'}</span>
             <span>分类：${work.category}</span>
-            <span>状态：${work.status}</span>
+            <span>状态：${WORK_STATUS_LABEL[work.status] || work.status}</span>
           </div>
           <h4>${work.title}</h4>
           <div><strong>摘要：</strong>${work.summary || '-'}</div>
-          ${work.cover_image ? `<img class="detail-image" src="${imageSrc(work.cover_image)}">` : ''}
-          ${chapters.map(ch => `<div class="chapter-block"><h4>${ch.title}</h4><div>${ch.content}</div></div>`).join('')}
+          ${renderDetailImages(work)}
+          ${type === 'comment' ? `<h4>全部评论</h4>${renderCommentTree(detail.comments)}` : ''}
         `;
-      } else if (type === 'comment') {
-        const c = await apiFetch(`/api/comments/${id}`).catch(() => null);
-        content.innerHTML = c
-          ? `<div class="detail-meta"><span>评论人：${c.user?.nickname || c.user?.account || '-'}</span><span>时间：${new Date(c.created_at).toLocaleString()}</span></div><div style="padding:10px;background:#f7f9f9;border-radius:8px;">${c.content}</div>`
-          : `<div>评论 #${id}（接口未提供详情，请到对应作品下查看）</div>`;
       } else {
         content.innerHTML = `<div>未知目标类型：${type} #${id}</div>`;
       }
     } catch (err) {
       content.innerHTML = `<div style="color: var(--danger-color);">${err.message}</div>`;
     }
+  }
+
+  function renderDetailImages(source) {
+    const images = normalizeWorkImages(source || {});
+    if (!images.length) return '';
+    if (images.length === 1) {
+      return `<img class="detail-image" src="${images[0]}" alt="作品图片" ${lightboxImageAttrs(images, 0)}>`;
+    }
+    return `<div class="detail-image-grid">${images.map((src, index) => `<img src="${src}" alt="作品图片 ${index + 1}" ${lightboxImageAttrs(images, index)}>`).join('')}</div>`;
   }
 
   const _origCloseWorkDetail = closeWorkDetail;
@@ -715,31 +875,22 @@
   };
 
   async function loadReports() {
-    const tbody = document.getElementById('report-list-body');
+    const workBody = document.getElementById('work-report-list-body');
+    const commentBody = document.getElementById('comment-report-list-body');
     try {
       const reports = await apiFetch('/api/reports');
       const list = Array.isArray(reports) ? reports : (reports.items || []);
       const pendingCount = list.filter(r => r.status === 'pending').length;
       setMenuBadge('reports-badge', pendingCount);
-      tbody.innerHTML = list.length ? list.map(r => `
-        <tr>
-          <td>${r.id}</td>
-          <td>${r.reporter?.nickname || r.reporter?.account || '-'}</td>
-          <td style="color:red;font-weight:bold;">${r.reason}</td>
-          <td>${r.description || '-'}</td>
-          <td>${new Date(r.created_at).toLocaleString()}</td>
-          <td><span class="status ${r.status === 'pending' ? 'status-pending' : 'status-approved'}">${r.status}</span></td>
-          <td>
-            <button class="btn btn-view" onclick="viewReportTarget('${r.target_type}', ${r.target_id})">查看</button>
-            ${r.status === 'pending' ? `
-            <button class="btn btn-reject" onclick="handleReportApi(${r.id}, true)">删除内容</button>
-            <button class="btn btn-view" onclick="handleReportApi(${r.id}, false)">忽略</button>
-            ` : `<button class="btn btn-reject" onclick="deleteReportRecord(${r.id})">删除记录</button>`}
-          </td>
-        </tr>
-      `).join('') : '<tr><td colspan="7">暂无举报</td></tr>';
+      const workReports = list.filter(r => r.target_type === 'work');
+      const commentReports = list.filter(r => r.target_type === 'comment');
+      document.getElementById('work-report-count').textContent = workReports.length;
+      document.getElementById('comment-report-count').textContent = commentReports.length;
+      workBody.innerHTML = renderReportRows(workReports, '暂无帖子举报');
+      commentBody.innerHTML = renderReportRows(commentReports, '暂无评论举报');
     } catch (err) {
-      tbody.innerHTML = `<tr><td colspan="7">${err.message}</td></tr>`;
+      workBody.innerHTML = `<tr><td colspan="7">${err.message}</td></tr>`;
+      commentBody.innerHTML = `<tr><td colspan="7">${err.message}</td></tr>`;
     }
   }
 
@@ -834,6 +985,7 @@
     try {
       const s = await apiFetch('/api/admin/stats');
       setMenuBadge('review-badge', s.pending_works);
+      setReviewCountLabel(s.pending_works);
       setMenuBadge('reports-badge', s.pending_reports);
       document.getElementById('stats-grid').innerHTML = `
         <div class="stat-card"><div class="stat-label">今日新增用户</div><div class="stat-number">${s.new_users_today}</div></div>
