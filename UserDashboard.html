@@ -911,8 +911,15 @@
 
     function renderEditPreview(url) {
       const preview = document.getElementById('edit-preview');
-      if (url) {
-        preview.innerHTML = `<img src="${normalizeImageUrl(url)}" alt="预览图">`;
+      const images = typeof normalizeWorkImages === 'function'
+        ? normalizeWorkImages({ cover_image: url })
+        : (url ? [normalizeImageUrl(url)] : []);
+      if (images.length === 1) {
+        preview.innerHTML = `<img class="edit-preview-img" src="${images[0]}" alt="预览图" ${lightboxImageAttrs(images, 0)}>`;
+      } else if (images.length > 1) {
+        preview.innerHTML = `<div class="collection-preview-grid">
+          ${images.map((src, index) => `<img class="edit-preview-img" src="${src}" alt="预览图 ${index + 1}" ${lightboxImageAttrs(images, index)}>`).join('')}
+        </div>`;
       } else {
         preview.innerHTML = '<span style="color: var(--text-secondary); font-size: 14px;">图片预览区域</span>';
       }
@@ -924,7 +931,8 @@
       if (!file) return renderEditPreview(editingCoverImage);
       const reader = new FileReader();
       reader.onload = e => {
-        preview.innerHTML = `<img src="${e.target.result}" alt="预览图">`;
+        const images = [e.target.result];
+        preview.innerHTML = `<img class="edit-preview-img" src="${images[0]}" alt="预览图" ${lightboxImageAttrs(images, 0)}>`;
       };
       reader.readAsDataURL(file);
     }

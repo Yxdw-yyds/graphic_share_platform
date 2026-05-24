@@ -120,6 +120,11 @@ private val StatusText = mapOf(
     "rejected" to "已驳回"
 )
 
+private fun generateCaptcha(): String {
+    val chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+    return (1..4).map { chars[kotlin.random.Random.nextInt(chars.length)] }.joinToString("")
+}
+
 private val AcColorScheme = lightColorScheme(
     primary = AcPrimary,
     onPrimary = Color.White,
@@ -399,9 +404,23 @@ private fun LoginScreen(vm: PlatformViewModel) {
     var registerPassword by remember { mutableStateOf("") }
     var resetPassword by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
+    var captcha by remember { mutableStateOf(generateCaptcha()) }
+    var captchaInput by remember { mutableStateOf("") }
     var nickname by remember { mutableStateOf("") }
     var userRememberPassword by remember { mutableStateOf(prefs.getBoolean("user_remember", prefs.getBoolean("remember", false))) }
     var adminRememberPassword by remember { mutableStateOf(prefs.getBoolean("admin_remember", false)) }
+
+    fun refreshCaptcha() {
+        captcha = generateCaptcha()
+        captchaInput = ""
+    }
+
+    fun captchaPassed(): Boolean {
+        if (captchaInput.trim().uppercase() == captcha) return true
+        android.widget.Toast.makeText(context, "图形验证码错误，请重试", android.widget.Toast.LENGTH_SHORT).show()
+        refreshCaptcha()
+        return false
+    }
     fun cacheLogin(prefix: String, remember: Boolean, account: String, password: String) {
         prefs.edit().apply {
             putBoolean("${prefix}_remember", remember)
@@ -443,16 +462,20 @@ private fun LoginScreen(vm: PlatformViewModel) {
                 if (mode == "admin_pwd") {
                     AppTextField(adminAccount, { adminAccount = it }, "手机号或邮箱")
                     AppTextField(adminPassword, { adminPassword = it }, "管理员密码", password = true)
+                    CaptchaRow(captcha, captchaInput, { captchaInput = it }, ::refreshCaptcha)
                     RememberLoginRow(adminRememberPassword) { adminRememberPassword = it }
                     PrimaryButton("进入管理后台", Modifier.fillMaxWidth()) {
+                        if (!captchaPassed()) return@PrimaryButton
                         cacheLogin("admin", adminRememberPassword, adminAccount, adminPassword)
                         vm.loginAdmin(adminAccount, adminPassword)
                     }
                 } else if (mode == "login_pwd") {
                     AppTextField(loginAccount, { loginAccount = it }, "手机号或邮箱")
                     AppTextField(loginPassword, { loginPassword = it }, "密码", password = true)
+                    CaptchaRow(captcha, captchaInput, { captchaInput = it }, ::refreshCaptcha)
                     RememberLoginRow(userRememberPassword) { userRememberPassword = it }
                     PrimaryButton("登录", Modifier.fillMaxWidth()) {
+                        if (!captchaPassed()) return@PrimaryButton
                         cacheLogin("user", userRememberPassword, loginAccount, loginPassword)
                         vm.login(loginAccount, loginPassword)
                     }
@@ -520,9 +543,23 @@ private fun LoginFloatingDialog(vm: PlatformViewModel) {
     var registerPassword by remember { mutableStateOf("") }
     var resetPassword by remember { mutableStateOf("") }
     var code by remember { mutableStateOf("") }
+    var captcha by remember { mutableStateOf(generateCaptcha()) }
+    var captchaInput by remember { mutableStateOf("") }
     var nickname by remember { mutableStateOf("") }
     var userRememberPassword by remember { mutableStateOf(prefs.getBoolean("user_remember", prefs.getBoolean("remember", false))) }
     var adminRememberPassword by remember { mutableStateOf(prefs.getBoolean("admin_remember", false)) }
+
+    fun refreshCaptcha() {
+        captcha = generateCaptcha()
+        captchaInput = ""
+    }
+
+    fun captchaPassed(): Boolean {
+        if (captchaInput.trim().uppercase() == captcha) return true
+        android.widget.Toast.makeText(context, "图形验证码错误，请重试", android.widget.Toast.LENGTH_SHORT).show()
+        refreshCaptcha()
+        return false
+    }
 
     fun cacheLogin(prefix: String, remember: Boolean, account: String, password: String) {
         prefs.edit().apply {
@@ -617,9 +654,11 @@ private fun LoginFloatingDialog(vm: PlatformViewModel) {
                     "admin" -> {
                         item { AppTextField(adminAccount, { adminAccount = it }, "手机号/邮箱") }
                         item { AppTextField(adminPassword, { adminPassword = it }, "管理员密码", password = true) }
+                        item { CaptchaRow(captcha, captchaInput, { captchaInput = it }, ::refreshCaptcha) }
                         item { RememberLoginRow(adminRememberPassword) { adminRememberPassword = it } }
                         item {
                             PrimaryButton("进入管理后台", Modifier.fillMaxWidth()) {
+                                if (!captchaPassed()) return@PrimaryButton
                                 cacheLogin("admin", adminRememberPassword, adminAccount, adminPassword)
                                 vm.loginAdmin(adminAccount, adminPassword)
                             }
@@ -628,9 +667,11 @@ private fun LoginFloatingDialog(vm: PlatformViewModel) {
                     else -> {
                         item { AppTextField(loginAccount, { loginAccount = it }, "手机号/邮箱") }
                         item { AppTextField(loginPassword, { loginPassword = it }, "密码", password = true) }
+                        item { CaptchaRow(captcha, captchaInput, { captchaInput = it }, ::refreshCaptcha) }
                         item { RememberLoginRow(userRememberPassword) { userRememberPassword = it } }
                         item {
                             PrimaryButton("登录", Modifier.fillMaxWidth()) {
+                                if (!captchaPassed()) return@PrimaryButton
                                 cacheLogin("user", userRememberPassword, loginAccount, loginPassword)
                                 vm.login(loginAccount, loginPassword)
                             }
@@ -650,6 +691,40 @@ private fun LoginFloatingDialog(vm: PlatformViewModel) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun CaptchaRow(
+    captcha: String,
+    value: String,
+    onValueChange: (String) -> Unit,
+    onRefresh: () -> Unit,
+) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Box(
+            modifier = Modifier
+                .width(108.dp)
+                .height(54.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFFF3F6F8))
+                .border(1.dp, AcBorder, RoundedCornerShape(10.dp))
+                .clickable(onClick = onRefresh),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                captcha,
+                color = AcText,
+                fontWeight = FontWeight.Black,
+                letterSpacing = 3.sp,
+                fontSize = 18.sp
+            )
+        }
+        AppTextField(value, onValueChange, "图形验证码", modifier = Modifier.weight(1f))
     }
 }
 
@@ -1177,9 +1252,8 @@ private fun MineScreen(state: PlatformUiState, vm: PlatformViewModel) {
     LazyColumn(contentPadding = PaddingValues(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (section != "menu") {
             item {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Start, verticalAlignment = Alignment.CenterVertically) {
                     TextButton(onClick = { section = "menu" }) { Text("返回") }
-                    TextButton(onClick = { vm.logout() }) { Text("退出", color = AcDanger) }
                 }
             }
         }
